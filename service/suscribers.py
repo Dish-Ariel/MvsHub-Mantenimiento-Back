@@ -111,10 +111,12 @@ class UsersService:
         updateInSes = []
         if len (userSes) != 0:
             updateInSes = Requester.UpdateUniversalRequestEmail(actualCount[0]["id_customer"],request.json["newEmail"])
-        
+            response.description = MessagesDTO.OK_USER_UPDATED_SES(request.json["newEmail"],actualCount[0]["email"])
+        else:
+            response.description = MessagesDTO.OK_USER_UPDATED(request.json["newEmail"],actualCount[0]["email"])
         response.code = MessagesDTO.CODE_OK
         response.data = {"lastEmail":actualCount[0]["email"], "userSes":len(userSes), "sesResponse":updateInSes, "mysqlResponse":updateSuscriberResponse, "cognitoResponse":updateCognitoResponse}
-        response.description = MessagesDTO.OK_USER_UPDATED
+
         return response.getJSON()
         
     def deleteSuscriber(request):

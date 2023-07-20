@@ -8,6 +8,10 @@ from dto.ResponseDTO import ResponseDTO
 app = Flask(__name__)
 load_dotenv()
 
+@app.route("/")
+def main():
+    return "<h1>Api funcionando</h1>"
+
 @app.route("/getSuscriber/<string:idOrEmail>", methods = ['GET'])
 def getSuscriberEmail(idOrEmail):
     return UsersService.getSuscriber(idOrEmail)
