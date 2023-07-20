@@ -12,7 +12,7 @@ class QuerierDishPlus:
                 if kind == "email":
                     cursor.execute("SELECT * FROM customer_dish_plus cdp, detail_customer dc WHERE cdp.folio = dc.folio AND cdp.email = %s", (idOrEmail))
                 else:
-                    cursor.execute("SELECT * FROM customer_dish_plus cdp, detail_customer dc WHERE cdp.folio = dc.folio AND cdp.id_cliente_siebel = %s", (idOrEmail))
+                    cursor.execute("SELECT * FROM customer_dish_plus cdp, detail_customer dc WHERE cdp.folio = dc.folio AND cdp.id_customer= %s", (idOrEmail))
                 suscriber = cursor.fetchall()
             conexion.close()
         except Exception as exc:
