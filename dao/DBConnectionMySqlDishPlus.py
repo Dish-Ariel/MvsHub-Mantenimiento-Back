@@ -28,3 +28,13 @@ class ConnectionMysqlDishPlus:
                                 cursorclass=pymysql.cursors.DictCursor,
                                 charset="utf8",
                                 use_unicode=True)
+    
+    def getConnection_Cache_pagos():
+        return pymysql.connect(host = os.getenv('CONNECTION_MYSQL_CACHEPAGOS_HOST'),
+                                port = int (os.getenv('CONNECTION_MYSQL_CACHEPAGOS_PORT')),
+                                user = os.getenv('CONNECTION_MYSQL_CACHEPAGOS_USER'),
+                                password = os.getenv('CONNECTION_MYSQL_CACHEPAGOS_PASS'),
+                                db = os.getenv('CONNECTION_MYSQL_CACHEPAGOS_SCHM'),
+                                cursorclass=pymysql.cursors.DictCursor,
+                                charset="utf8",
+                                use_unicode=True)

@@ -24,8 +24,8 @@ def updateSuscriberEmail():
 
 @app.route("/deleteSuscriberEmail", methods = ['POST'])
 def deleteSuscriberEmail():
-    #return UsersService.deleteSuscriber(request)
-    return {"actionDummy":"deleted"}
+    return UsersService.deleteSuscriber(request)
+    #return {"actionDummy":"deleted"}
 
 @app.route("/getStatus",  methods = ['GET'])
 def getStatus():
