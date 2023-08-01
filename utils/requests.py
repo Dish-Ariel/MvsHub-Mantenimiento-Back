@@ -46,6 +46,9 @@ def UpdateUniversalRequest(id,email):
     myobj = {
         "url":"https://10.72.2.46:4446/maui/rest/customer/update/"+str(id),
         "request": {
+            "customerInfo":{
+                "email":email
+            },
             "remoteSchedulerCustomer":{
                 "email": email
             }
