@@ -6,6 +6,7 @@ from utils.requests import Requester
 from utils.cognitos import CognitoDishPlus
 
 class UsersService:
+    
     def getSuscriber(idOrEmail):
         response = ResponseDTO()
 
@@ -134,17 +135,78 @@ class UsersService:
             response.description = MessagesDTO.ERROR_SUSCRIBER_NOT_FOUNDIN_BD
             response.data = {"field":"emailOrId", "emailOrId":request.json["emailOrId"]}
             return response.getJSON()
-        
+        #get the user from cognito using email from db
         actualEmailCognitos = CognitoDishPlus.getSuscriberCognitoByEmail(actualCount[0]["email"])
         #actualEmailCognitos = CognitoDishPlus.getSuscriberCognitoByEmail(request.json["emailOrId"])
         if len(actualEmailCognitos) == 0:
+            #delete user 
             response.description = MessagesDTO.ERROR_EMAIL_NOT_FOUNDIN_COGNITO
             response.data = {"field":"emailOrId"}
             return response.getJSON()
+        #valido usuario de cognito = usuario en bd
+        else: 
+            for i in actualEmailCognitos[0]["Attributes"]:
+                fields = []
+                values = []
+                if i["Name"] == "name":
+                    if str(actualCount[0]["name"]).lower() not in str(i["Value"]).lower():
+                        fields.append("name")
+                        values.append("bd:" + str(actualCount[0]["name"]).lower() + " (NOT IN) cognito:" + str(i["Value"]).lower())
+                    if str(actualCount[0]["surname"]).lower() not in str(i["Value"]).lower():
+                        fields.append("surName")
+                        values.append("bd:" + str(actualCount[0]["surname"]).lower() + " (NOT IN) cognito:" + str(i["Value"]).lower())
+                
+                if i["Name"] == "phone_number":
+                    if actualCount[0]["mobile"] not in i["Value"]:
+                        fields.append("mobile")
+                        values.append("bd:" + str(actualCount[0]["mobile"]) + " (NOT IN) cognito:" + str(i["Value"]))
+                #update username if not exists
+                if i["Name"] == "sub":
+                    if actualCount[0]["username"] not in i["Value"]:#Validate if have username in db
+                        if QuerierDishPlus.validate_sub(i["Value"]) == "none":#Validate that the username doesn't exist in db
+                            status = QuerierDishPlus.update_username(i["Value"], actualCount[0]["email"])
+                            if status != "commited":
+                                fields.append("update_username_failed")
+                                values.append(str(response))
 
-        deleteInCognito = CognitoDishPlus.deleteSuscriberCognitoByEmail(actualEmailCognitos[0]["Username"])
+                if len(fields)>0:
+                    response.code = MessagesDTO.CODE_WARNIG
+                    response.description = MessagesDTO.WARNING_NOTMATCH_CONGINTO_DB
+                    response.data = {"fields":fields, "values":values, "email":actualCount[0]["email"]}
+                    return response.getJSON()
+                #validate payments
+                
+            validate_payment = QuerierDishPlus.check_payments(actualCount[0]["id_cliente_siebel"],actualCount[0]["id_cliente"])
+            if validate_payment != "none":
+                response.description = MessagesDTO.ERROR_USER_HAS_PAYMENTS
+                response.data = {"field":validate_payment}
+                return response.getJSON()
+                
+                #delete from cache_pagos
+            delete_cache_pagos = QuerierDishPlus.delete_cache_pagos(actualCount[0]["mobile"],actualCount[0]["id_cliente"],actualCount[0]["id_cliente_siebel"])
+            print(delete_cache_pagos)
+            if delete_cache_pagos != "commited" and delete_cache_pagos != "none":
+                response.description = MessagesDTO.ERROR_WITH_CONNECTION_DB
+                response.data = {"field":delete_cache_pagos}
+                return response.getJSON()
+            
+                #DELETE FROM PAYSERVICES 
+            #¿USER IN SES?
+
+        #deleteInCognito = CognitoDishPlus.deleteSuscriberCognitoByEmail(actualEmailCognitos[0]["Username"])
+        userSes = []
+        delete_user_SES = []
+        if actualCount[0]["id_cliente"] != 0:
+            userSes = Requester.PostUniversalRequestUser(actualCount[0]["id_cliente"])
+            if len (userSes) != 0:
+                delete_user_SES = CognitoDishPlus.deleteSuscriberSes(actualCount[0]["id_cliente"],actualCount[0]["email"])
+        
+        #deleteuser
+        delete_user = CognitoDishPlus.deleteSuscriber(actualCount[0]["email"])
+
         
         response.code = MessagesDTO.CODE_OK
-        response.data = str(deleteInCognito)
-        response.description = MessagesDTO.OK_USER_DELETED
+        response.data = {"Delete_user":actualCount[0]["email"],"deleteuserResponse":delete_user["correo"], "userSes":userSes, "sesResponse":delete_user_SES, "cachepagosResponse":delete_cache_pagos, }
+        response.description = MessagesDTO.OK_USER_DELETED(actualCount[0])
         return response.getJSON()
+    
