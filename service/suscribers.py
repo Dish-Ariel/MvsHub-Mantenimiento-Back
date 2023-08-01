@@ -143,7 +143,7 @@ class UsersService:
             response.description = MessagesDTO.ERROR_EMAIL_NOT_FOUNDIN_COGNITO
             response.data = {"field":"emailOrId"}
             return response.getJSON()
-        #valido usuario de cognito = usuario en bd
+        #validate user in cognito = user in bd
         else: 
             for i in actualEmailCognitos[0]["Attributes"]:
                 fields = []
@@ -184,7 +184,6 @@ class UsersService:
                 
                 #delete from cache_pagos
             delete_cache_pagos = QuerierDishPlus.delete_cache_pagos(actualCount[0]["mobile"],actualCount[0]["id_cliente"],actualCount[0]["id_cliente_siebel"])
-            print(delete_cache_pagos)
             if delete_cache_pagos != "commited" and delete_cache_pagos != "none":
                 response.description = MessagesDTO.ERROR_WITH_CONNECTION_DB
                 response.data = {"field":delete_cache_pagos}
@@ -192,8 +191,6 @@ class UsersService:
             
                 #DELETE FROM PAYSERVICES 
             #¿USER IN SES?
-
-        #deleteInCognito = CognitoDishPlus.deleteSuscriberCognitoByEmail(actualEmailCognitos[0]["Username"])
         userSes = []
         delete_user_SES = []
         if actualCount[0]["id_cliente"] != 0:

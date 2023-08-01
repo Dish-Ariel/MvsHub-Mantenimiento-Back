@@ -25,16 +25,6 @@ class CognitoDishPlus:
         
         return response
     
-    def deleteSuscriberCognitoByEmail(username):
-        print(str("UserPoolId = " + os.getenv('AWSCLI_COGNITO_USERPOOL') + ", Username = "+ username))
-        client = boto3.client('cognito-idp')
-        response = client.admin_delete_user(
-            UserPoolId = os.getenv('AWSCLI_COGNITO_USERPOOL'),
-            Username = username
-        )
-        
-        return response
-    
     def deleteSuscriberSes(id_customer,email):
         
         try:
@@ -42,8 +32,8 @@ class CognitoDishPlus:
                 "id_customer": id_customer,
                 "email": email
             }
-            lambda_client = boto3.client('lambda',region_name="us-east-1")
-            lambda_url = os.environ.get("LAMBDA_DELETE_SES")
+            lambda_client = boto3.client('lambda',region_name=os.environ.getenv("REGION_NAME"))
+            lambda_url = os.environ.getenv("LAMBDA_DELETE_SES")
             response_json = lambda_client.invoke(FunctionName = lambda_url, InvocationType = "RequestResponse",Payload = json.dumps(payload))
             response = json.loads(response_json['Payload'].read())
             return response
@@ -56,13 +46,13 @@ class CognitoDishPlus:
         try:
             payload = {
                 "method": "Post",
-                "sourceIP": "192.150.1.12",
+                "sourceIP": os.environ.getenv("SOURCE"),
                 "body": {
                         "email": email
                 }
             }
-            lambda_client = boto3.client('lambda',region_name="us-east-1")
-            lambda_url = os.environ.get("LAMBDA_DELETE_SUSCRIBER")
+            lambda_client = boto3.client('lambda',region_name=os.environ.getenv("REGION_NAME"))
+            lambda_url = os.environ.getenv("LAMBDA_DELETE_SUSCRIBER")
             response_json = lambda_client.invoke(FunctionName = lambda_url, InvocationType = "RequestResponse",Payload = json.dumps(payload))
             response = json.loads(response_json['Payload'].read())
             return response
