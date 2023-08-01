@@ -137,8 +137,11 @@ class QuerierDishPlus:
     
     def check_payments(id_cliente_siebel, id_customer):
         conexion = None
-        if id_cliente_siebel == 0:
+        if id_cliente_siebel == 0 and id_customer == 0:
+            return "none"
+        elif id_cliente_siebel == 0:
             id_cliente_siebel = id_customer
+
         try:
             
             conexion = ConnectionMysqlDishPlus.getConnection_Cache_pagos()
@@ -162,6 +165,31 @@ class QuerierDishPlus:
         if len(vicomm_r) or len(vicomm) or len(t04ctrl) or len(paypal) >= 1:
             return "Payment exists"
         else:
+            return "none"
+    
+    def delete_cache_pagos(phone_number,id_customer, id_cliente_siebel):
+        conexion = None
+        if id_cliente_siebel == 0:
+            id_cliente_siebel = id_customer
+        
+        try : 
+           
+            conexion = ConnectionMysqlDishPlus.getConnection_Cache_pagos()
+            with conexion.cursor() as cursor:
+                cursor.execute("DELETE FROM ctrl_mediosexternosV2_dishplus WHERE n_talon2 = %s AND c_cliente = %s OR c_cliente = %s",(phone_number,id_customer,id_cliente_siebel))
+                payment = cursor.rowcount
+                
+        except Exception as exc:
+            if conexion != None:
+                conexion.close()
+            return {"result":"error","message":exc}
+
+        if payment == 1:
+            conexion.commit()
+            conexion.close()
+            return "commited"
+        else:
+            conexion.close()
             return "none"
         
         

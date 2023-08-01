@@ -176,16 +176,37 @@ class UsersService:
                     return response.getJSON()
                 #validate payments
                 
-                validate_payment = QuerierDishPlus.check_payments(actualCount[0]["id_cliente_siebel"],actualCount[0]["id_customer"])
-                if validate_payment != "none":
-                    response.description = MessagesDTO.ERROR_USER_HAS_PAYMENTS
-                    response.data = {"field":validate_payment}
-                    return response.getJSON()
+            validate_payment = QuerierDishPlus.check_payments(actualCount[0]["id_cliente_siebel"],actualCount[0]["id_cliente"])
+            if validate_payment != "none":
+                response.description = MessagesDTO.ERROR_USER_HAS_PAYMENTS
+                response.data = {"field":validate_payment}
+                return response.getJSON()
                 
+                #delete from cache_pagos
+            delete_cache_pagos = QuerierDishPlus.delete_cache_pagos(actualCount[0]["mobile"],actualCount[0]["id_cliente"],actualCount[0]["id_cliente_siebel"])
+            print(delete_cache_pagos)
+            if delete_cache_pagos != "commited" and delete_cache_pagos != "none":
+                response.description = MessagesDTO.ERROR_WITH_CONNECTION_DB
+                response.data = {"field":delete_cache_pagos}
+                return response.getJSON()
+            
+                #DELETE FROM PAYSERVICES 
+            #¿USER IN SES?
+
         #deleteInCognito = CognitoDishPlus.deleteSuscriberCognitoByEmail(actualEmailCognitos[0]["Username"])
+        userSes = []
+        delete_user_SES = []
+        if actualCount[0]["id_cliente"] != 0:
+            userSes = Requester.PostUniversalRequestUser(actualCount[0]["id_cliente"])
+            if len (userSes) != 0:
+                delete_user_SES = CognitoDishPlus.deleteSuscriberSes(actualCount[0]["id_cliente"],actualCount[0]["email"])
+        
+        #deleteuser
+        delete_user = CognitoDishPlus.deleteSuscriber(actualCount[0]["email"])
+
         
         response.code = MessagesDTO.CODE_OK
-        response.data = str("something_went_wrong")
-        response.description = MessagesDTO.OK_USER_DELETED
+        response.data = {"Delete_user":actualCount[0]["email"],"deleteuserResponse":delete_user["correo"], "userSes":userSes, "sesResponse":delete_user_SES, "cachepagosResponse":delete_cache_pagos, }
+        response.description = MessagesDTO.OK_USER_DELETED(actualCount[0])
         return response.getJSON()
     
