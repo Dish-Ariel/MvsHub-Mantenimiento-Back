@@ -4,6 +4,7 @@ from utils.validations import SuscriberValidator
 from utils.querysDishPlus import QuerierDishPlus
 from utils.requests import Requester
 from utils.cognitos import CognitoDishPlus
+from lambda_aws.lambdas import LambdaDishPlus
 
 class UsersService:
     
@@ -196,14 +197,14 @@ class UsersService:
         if actualCount[0]["id_cliente"] != 0:
             userSes = Requester.PostUniversalRequestUser(actualCount[0]["id_cliente"])
             if len (userSes) != 0:
-                delete_user_SES = CognitoDishPlus.deleteSuscriberSes(actualCount[0]["id_cliente"],actualCount[0]["email"])
+                delete_user_SES = LambdaDishPlus.deleteSuscriberSes(actualCount[0]["id_cliente"],actualCount[0]["email"])
         
         #deleteuser
-        delete_user = CognitoDishPlus.deleteSuscriber(actualCount[0]["email"])
+        delete_user = LambdaDishPlus.deleteSuscriber(actualCount[0]["email"])
 
         
         response.code = MessagesDTO.CODE_OK
         response.data = {"Delete_user":actualCount[0]["email"],"deleteuserResponse":delete_user["correo"], "userSes":userSes, "sesResponse":delete_user_SES, "cachepagosResponse":delete_cache_pagos, }
-        response.description = MessagesDTO.OK_USER_DELETED(actualCount[0])
+        response.description = MessagesDTO.OK_USER_DELETED(actualCount[0], userSes)
         return response.getJSON()
     
