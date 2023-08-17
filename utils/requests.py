@@ -32,7 +32,7 @@ class Requester:
 def PostUniversalRequest(id):
     url = os.getenv('REQUEST_UNIVERSALREQUEST_URL')
     myobj = {
-        "url":"https://10.72.2.46:4446/maui/rest/customer/getCustomer",
+        "url":os.getenv('POST_UNIVERSAL_REQUEST'),
         "request":{
             "customerId":id
         },
@@ -44,7 +44,7 @@ def PostUniversalRequest(id):
 def UpdateUniversalRequest(id,email):
     url = os.getenv('REQUEST_UNIVERSALREQUEST_URL')
     myobj = {
-        "url":"https://10.72.2.46:4446/maui/rest/customer/update/"+str(id),
+        "url":os.getenv('UPDATE_UNIVERSAL_REQUEST')+str(id),
         "request": {
             "customerInfo":{
                 "email":email
