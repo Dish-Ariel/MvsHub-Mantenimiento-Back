@@ -2,11 +2,36 @@ from dto.ResponseDTO import ResponseDTO
 from dto.MensajesDTO import MessagesDTO
 from utils.validations import SuscriberValidator
 from utils.querysDishPlus import QuerierDishPlus
+from utils.querysAprdb import QuerierAprdb
 from utils.requests import Requester
 from utils.cognitos import CognitoDishPlus
 from lambda_aws.lambdas import LambdaDishPlus
 
 class UsersService:
+
+    def getSuscribersRT(request):
+        response = ResponseDTO()
+
+        dateFrom = SuscriberValidator.checkIfIsDate(request.json["dateFrom"])
+        dateTo = SuscriberValidator.checkIfIsDate(request.json["dateTo"])
+        if dateFrom == False or dateTo == False:
+            response.description = MessagesDTO.ERROR_INVALID_DATE
+            return response.getJSON()
+        
+        suscribersRT = QuerierDishPlus.getSuscribersRT(dateFrom,dateTo)
+        for suscriber in suscribersRT:
+            usersCognito = CognitoDishPlus.getSuscriberCognitoByEmail(suscriber["email"])
+            if(len(usersCognito)==1):
+                suscriber["IsActive"] = usersCognito[0]["Enabled"]
+            elif(len(usersCognito) ==0):
+                suscriber["IsActive"] = "X"
+            elif(len(usersCognito) >1):
+                suscriber["IsActive"] = "X-" + str(len(usersCognito))
+
+        response.code = MessagesDTO.CODE_OK
+        response.description = MessagesDTO.OK_USERS_FOUND
+        response.data = {"suscribersRT":suscribersRT}
+        return response.getJSON()
     
     def getSuscriber(idOrEmail):
         response = ResponseDTO()
@@ -207,4 +232,89 @@ class UsersService:
         response.data = {"Delete_user":actualCount[0]["email"],"deleteuserResponse":delete_user["correo"], "userSes":userSes, "sesResponse":delete_user_SES, "cachepagosResponse":delete_cache_pagos, }
         response.description = MessagesDTO.OK_USER_DELETED(actualCount[0], userSes)
         return response.getJSON()
+
+    def disableSuscriberRT(request,actions):
+        response = ResponseDTO()
+        messageDisabled = {}
+        messageMarked = {}
+
+        usernameCognito = request.json["usernameCognito"]
+        idSiebel = request.json["idSiebel"]
+        status = request.json["status"]
+
+        if (usernameCognito != None and ("MVSHUB.disableSuscriberRT" in actions)):
+            idClienteSiebel = ""
+            
+            sucriberCognito = CognitoDishPlus.getSuscriberCognitoByUserName(usernameCognito)
+            if len(sucriberCognito) <= 0:
+                response.description = MessagesDTO.ERROR_USERNAME_NOT_FOUNDIN_COGNITO
+                return response.getJSON()
+            else:
+                if(sucriberCognito[0]["Enabled"]==False):
+                    response.description = MessagesDTO.ERROR_USERNAME_DISABLED_COGNITO
+                    return response.getJSON()
+
+            for i in sucriberCognito[0]["Attributes"]:
+                email = "none"
+                if i["Name"] == "email":
+                    email = i["Value"]
+
+            actualCount = QuerierDishPlus.getSuscriber("email",email)
+            if actualCount == "none":
+                response.description = MessagesDTO.ERROR_SUSCRIBER_NOT_FOUNDIN_BD
+                response.data = {"field":"emailFromCognito", "emailFromCognito":email}
+                return response.getJSON()
+            
+            if(len(actualCount)>0):
+                idClienteSiebel = actualCount[0]["id_cliente_siebel"]
+                date = ""
+
+                if(idClienteSiebel == None or idClienteSiebel == 0 or idClienteSiebel == ""):
+                    response.description = MessagesDTO.ERROR_SUSCRIBER_NOT_FOUNDIN_SBL
+                    response.data = {"field":"emailFromCognito", "emailFromCognito":email}
+                    return response.getJSON()
+                
+            #updateSuscriberRTFake = QuerierAprdb.updateSuscriberRTFake(idClienteSiebel)
+            #if updateSuscriberRTFake != "commited":
+            #    response.description = MessagesDTO.ERROR_UPDATEIN_BD
+            #    response.data = {"mysqlResponse":updateSuscriberRTFake}
+            #    return response.getJSON()
+
+            #suscriberCognitoDisabled = CognitoDishPlus.disableByUsername(request.json["username"])
+            #QuerierControl.addSuscribersRT(idClienteSiebel,date,"ToDisableServices")
+
+            messageDisabled["actualCount"] = {"ac":"actualCount"}
+            messageDisabled.setdefault("actualCount",{}).setdefault("ac2",actualCount)
+        
+        if((idSiebel != None) and (status != None) and ("MVSHUB.markSuscriberRT" in actions)):
+            messageMarked.setdefault("markedCount",{}).setdefault("a","actualCount")
+            messageMarked.setdefault("markedCount",{}).setdefault("a","actualCount2")
+
+        response.code = MessagesDTO.CODE_OK
+        response.description = MessagesDTO.OK_USER_DISABLED
+        response.data = {"Disabled":messageDisabled,"Marked":messageMarked}
+        return response.getJSON()
     
+    def disableServicesRT(request,actions):
+        response = ResponseDTO()
+        messageNetflix = {}
+        messageAmazon = {}
+
+        idClienteSiebel = request.json["idClienteSiebel"]
+        if (idClienteSiebel != None and ("MVSHUB.disableServicesRT" in actions)):
+            checkSuscriberRTFake = QuerierAprdb.checkSuscriberRTFake(idClienteSiebel)
+            
+            if(checkSuscriberRTFake == "none"):
+                print (checkSuscriberRTFake)
+                #ejecution
+                Requester.CancelationNetflix(idClienteSiebel)
+                
+            else:
+                response.description = MessagesDTO.ERROR_SUSCRIBER_NOT_READYTO_DISABLE
+                response.data = {"field":"idClienteSiebel", "idClienteSiebel":idClienteSiebel, "checkSuscriberRTFake":checkSuscriberRTFake}
+                return response.getJSON()
+
+        response.code = MessagesDTO.CODE_OK
+        response.description = MessagesDTO.OK_SUSCRIBER_SERVICES_DISABLED
+        response.data = {"serviceNetfix":messageNetflix,"serviceAmazon":messageAmazon}
+        return response.getJSON()

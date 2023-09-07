@@ -1,4 +1,5 @@
 import requests
+import json
 import os
 
 class Requester:
@@ -25,6 +26,12 @@ class Requester:
         #    if response.json().get("response") != None:
         #        if response.json().get("response") == id:
         #            array.append(response.json())
+        array.append(response)
+        return array
+    
+    def CancelationNetflix(idClienteSiebel):
+        response = CancelationNetflix(idClienteSiebel)
+        array = []
         array.append(response)
         return array
 
@@ -56,4 +63,23 @@ def UpdateUniversalRequest(id,email):
         "method":"PUT"
     }
     response = requests.post(url, json = myobj)
+    return response.json
+
+def CancelationNetflix(suscriber):
+    url = os.getenv('REQUEST_CANCELNETFLIX_URL')
+    url_token = os.getenv('REQUEST_CANCELNETFLIX_LOGIN')
+    payload_token = { "user":os.getenv('REQUEST_CANCELNETFLIX_USER'), "password":os.getenv('REQUEST_CANCELNETFLIX_PASS') }
+
+    respWs = requests.post(url_token, data = json.dumps(payload_token))
+    json_respWs = respWs.json()
+    token = json_respWs['netflix']['openid']
+    
+    
+    payload = {
+        "suscriptor": suscriber,
+        "razonCancelacion": "CANCELACION"
+    }
+    headers = {"Content-Type": "application/json", "openid": token} 
+    response = requests.post(url, data = json.dumps(payload), headers = headers)
+
     return response.json

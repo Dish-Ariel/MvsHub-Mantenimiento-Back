@@ -12,6 +12,12 @@ load_dotenv()
 def main():
     return "<h1>Api funcionando</h1>"
 
+@app.route("/getSuscribersRT", methods = ['POST'])
+def getSuscribersRT():
+    actions = ["MVSHUB.getSuscribersRT"]
+    return UsersService.getSuscribersRT(request)
+    #return {"actionDummy":"Geted"}
+
 @app.route("/getSuscriber/<string:idOrEmail>", methods = ['GET'])
 def getSuscriberEmail(idOrEmail):
     return UsersService.getSuscriber(idOrEmail)
@@ -27,9 +33,20 @@ def deleteSuscriberEmail():
     return UsersService.deleteSuscriber(request)
     #return {"actionDummy":"deleted"}
 
+@app.route("/disableSuscriberRT", methods = ['POST'])
+def disableSuscriberRT():
+    actions = ["MVSHUB.disableSuscriberRT","MVSHUB.markSuscriberRT"]
+    return UsersService.disableSuscriberRT(request,actions)
+    #return {"actionDummy":"deleted"}
+
+@app.route("/disableServicesRT", methods = ['POST'])
+def disableServicesRT():
+    actions = ["MVSHUB.disableServicesRT"]
+    return UsersService.disableServicesRT(request,actions)
+    #return {"actionDummy":"deleted"}
+
 @app.route("/getStatus",  methods = ['GET'])
 def getStatus():
-    
     return {"statusDummy":"1"}
 
 # HANDLE ERROR

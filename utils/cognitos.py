@@ -10,6 +10,14 @@ class CognitoDishPlus:
         )
         return response["Users"]
     
+    def getSuscriberCognitoByUserName(username):
+        client = boto3.client('cognito-idp')
+        response = client.list_users(
+            UserPoolId = os.getenv('AWSCLI_COGNITO_USERPOOL'),
+            Filter = 'username=\"' + username + '\"'
+        )
+        return response["Users"]
+    
     def updateSuscriberEmailCognito(username,newEmail):
         client = boto3.client('cognito-idp')
         response = client.admin_update_user_attributes(
@@ -22,6 +30,19 @@ class CognitoDishPlus:
                 }
             ]
         )
-        
+        return response
+    
+    def disableByUsername(username):
+        client = boto3.client('cognito-idp')
+        response = client.admin_disable_user(
+            UserPoolId = os.getenv('AWSCLI_COGNITO_USERPOOL'),
+            Username=username,
+            UserAttributes=[
+                {
+                    'Name': 'email',
+                    'Value': username
+                }
+            ]
+        )
         return response
     

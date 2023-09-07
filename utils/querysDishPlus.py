@@ -2,6 +2,29 @@ from dao.DBConnectionMongoControl import ConnectionMongoControl
 from dao.DBConnectionMySqlDishPlus import ConnectionMysqlDishPlus
 
 class QuerierDishPlus:
+    def getSuscribersRT(dateFrom,dateTo):
+        dateFormedFrom = str(dateFrom) + " 00:00:00"
+        dateFormedTo = str(dateTo) + " 23:59:59"
+
+        conexion = None
+        suscribers = []
+
+        try:
+            conexion = ConnectionMysqlDishPlus.getConnection()
+            with conexion.cursor() as cursor:
+                cursor.execute("SELECT * FROM creacion_siebel_pendiente csp, customer_dish_plus cdp WHERE csp.correo = cdp.email and csp.pago_suscripcion IN ('Recibo Telmex') and fecha > %s and fecha < %s ORDER BY fecha DESC", (dateFormedFrom,dateFormedTo))
+                suscribers = cursor.fetchall()
+            conexion.close()
+        except Exception as exc:
+            if conexion != None:
+                conexion.close()
+            return {"result":"error","message":exc}
+        
+        if len(suscribers) > 0: 
+            return suscribers
+        else:
+            return "none"
+        
     def getSuscriber(kind,idOrEmail):
         conexion = None
         suscriber = []
@@ -19,7 +42,6 @@ class QuerierDishPlus:
             if conexion != None:
                 conexion.close()
             return {"result":"error","message":exc}
-
         
         if len(suscriber) == 1: 
             return suscriber
@@ -191,6 +213,3 @@ class QuerierDishPlus:
         else:
             conexion.close()
             return "none"
-        
-        
-        
