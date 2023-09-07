@@ -307,7 +307,7 @@ class UsersService:
             if(checkSuscriberRTFake == "none"):
                 print (checkSuscriberRTFake)
                 #ejecution
-                Requester.CancelationNetflix(idClienteSiebel)
+                #Requester.CancelationNetflix(idClienteSiebel)
                 
             else:
                 response.description = MessagesDTO.ERROR_SUSCRIBER_NOT_READYTO_DISABLE
