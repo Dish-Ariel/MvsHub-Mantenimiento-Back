@@ -1,5 +1,6 @@
 from dao.DBConnectionMongoControl import ConnectionMongoControl
 from dao.DBConnectionMySqlDishPlus import ConnectionMysqlDishPlus
+import logging
 
 class QuerierDishPlus:
     def getSuscribersRT(dateFrom,dateTo):
@@ -66,8 +67,7 @@ class QuerierDishPlus:
                 conexion.close()
             return {"result":"error","message":exc}
 
-        return len(suscriber)
-    
+        return len(suscriber)    
 
     def getSuscriberLogs(folio):
         conexion = None
@@ -88,7 +88,6 @@ class QuerierDishPlus:
             return logs
         else:
             return "none"
-
 
     def updateSuscriber(lastEmail,newEmail):
         conexion = None
@@ -213,3 +212,45 @@ class QuerierDishPlus:
         else:
             conexion.close()
             return "none"
+
+    def disable_amazon_prime(idClienteSiebel,reason,ticket):
+        conexion = None
+        try :      
+            conexion = ConnectionMysqlDishPlus.getConnection_AmazonPrime()
+            with conexion.cursor() as cursor:
+                cursor.execute("INSERT INTO cancelaciones_operaciones (cliente, descripcion, estatus, ticket) VALUES(%s, %s,'POR_DESPACHAR', %s)",(idClienteSiebel,reason,ticket))
+                inserted = cursor.rowcount
+                
+        except Exception as exc:
+            logging.error("disable_amazon_prime:" + str(exc) + "\n\n\n")
+            if conexion != None:
+                conexion.close()
+            return {"result":"error","message":exc}
+
+        if inserted == 1:
+            conexion.commit()
+            conexion.close()
+            return "commited"
+        else:
+            conexion.close()
+            return "none"
+
+    def check_amazon_prime(idClienteSiebel):
+        conexion = None
+        try :      
+            conexion = ConnectionMysqlDishPlus.getConnection_AmazonPrime()
+            with conexion.cursor() as cursor:
+                cursor.execute("SELECT * FROM cancelaciones_operaciones WHERE cliente = '%s'",idClienteSiebel)
+                payment = cursor.fetchall()
+                conexion.close()
+                
+        except Exception as exc:
+            logging.error("check_amazon_prime:" + str(exc) + "\n\n\n")
+            if conexion != None:
+                conexion.close()
+            return "exist"
+
+        if len(payment) >= 1:
+            return "exist"
+        else:
+            return "none"    

@@ -235,16 +235,16 @@ class UsersService:
 
     def disableSuscriberRT(request,actions):
         response = ResponseDTO()
-        messageDisabled = {}
-        messageMarked = {}
 
+        #Get fields of request
         usernameCognito = request.json["usernameCognito"]
-        idSiebel = request.json["idSiebel"]
-        status = request.json["status"]
+        #idSiebel = request.json["idSiebel"]
+        #status = request.json["status"]
 
+        #User has permissions? static for now
         if (usernameCognito != None and ("MVSHUB.disableSuscriberRT" in actions)):
+            #Get and validate if user exist in cognito
             idClienteSiebel = ""
-            
             sucriberCognito = CognitoDishPlus.getSuscriberCognitoByUserName(usernameCognito)
             if len(sucriberCognito) <= 0:
                 response.description = MessagesDTO.ERROR_USERNAME_NOT_FOUNDIN_COGNITO
@@ -254,17 +254,20 @@ class UsersService:
                     response.description = MessagesDTO.ERROR_USERNAME_DISABLED_COGNITO
                     return response.getJSON()
 
+            #Get email from cognito's attributes
             for i in sucriberCognito[0]["Attributes"]:
                 email = "none"
                 if i["Name"] == "email":
                     email = i["Value"]
 
+            #Get actual acount in bd, and check if exist
             actualCount = QuerierDishPlus.getSuscriber("email",email)
             if actualCount == "none":
                 response.description = MessagesDTO.ERROR_SUSCRIBER_NOT_FOUNDIN_BD
                 response.data = {"field":"emailFromCognito", "emailFromCognito":email}
                 return response.getJSON()
             
+            #Get siebel id, and check if is not null or empty
             if(len(actualCount)>0):
                 idClienteSiebel = actualCount[0]["id_cliente_siebel"]
                 date = ""
@@ -273,48 +276,47 @@ class UsersService:
                     response.description = MessagesDTO.ERROR_SUSCRIBER_NOT_FOUNDIN_SBL
                     response.data = {"field":"emailFromCognito", "emailFromCognito":email}
                     return response.getJSON()
-                
+
+            #DO update in tables, when is commited, then disable from cognito by username
             #updateSuscriberRTFake = QuerierAprdb.updateSuscriberRTFake(idClienteSiebel)
             #if updateSuscriberRTFake != "commited":
             #    response.description = MessagesDTO.ERROR_UPDATEIN_BD
             #    response.data = {"mysqlResponse":updateSuscriberRTFake}
             #    return response.getJSON()
 
-            #suscriberCognitoDisabled = CognitoDishPlus.disableByUsername(request.json["username"])
-            #QuerierControl.addSuscribersRT(idClienteSiebel,date,"ToDisableServices")
-
-            messageDisabled["actualCount"] = {"ac":"actualCount"}
-            messageDisabled.setdefault("actualCount",{}).setdefault("ac2",actualCount)
-        
-        if((idSiebel != None) and (status != None) and ("MVSHUB.markSuscriberRT" in actions)):
-            messageMarked.setdefault("markedCount",{}).setdefault("a","actualCount")
-            messageMarked.setdefault("markedCount",{}).setdefault("a","actualCount2")
+            #suscriberCognitoDisabled = CognitoDishPlus.disableByUsername(usernameCognito)
 
         response.code = MessagesDTO.CODE_OK
         response.description = MessagesDTO.OK_USER_DISABLED
-        response.data = {"Disabled":messageDisabled,"Marked":messageMarked}
+        response.data = {"DB":actualCount, "Cognito":"suscriberCognitoDisabled"}
         return response.getJSON()
     
     def disableServicesRT(request,actions):
         response = ResponseDTO()
-        messageNetflix = {}
-        messageAmazon = {}
 
+        #Get fields of request (we will need check if field exist)
         idClienteSiebel = request.json["idClienteSiebel"]
+        reason = request.json["reason"]
+        ticket = request.json["ticket"]
+
+        #User has permissions? static for now
         if (idClienteSiebel != None and ("MVSHUB.disableServicesRT" in actions)):
+            #Get and validate if user till exist in db, for call cancelations... and check if is not added to amazon db
             checkSuscriberRTFake = QuerierAprdb.checkSuscriberRTFake(idClienteSiebel)
-            
-            if(checkSuscriberRTFake == "none"):
+            checkSuscriberAmazonDisabled = QuerierDishPlus.check_amazon_prime(idClienteSiebel)
+            if(checkSuscriberRTFake == "none" and checkSuscriberAmazonDisabled == "none"):
                 print (checkSuscriberRTFake)
-                #ejecution
-                #Requester.CancelationNetflix(idClienteSiebel)
+
+                #DO call service to cancel netflix, and insert value to bd to cancel amazon, for the lambda fuse_CancelacionesAmazon_prod
+                #messageNetflix = Requester.CancelationNetflix(idClienteSiebel)
+                #messageAmazon = QuerierDishPlus.disable_amazon_prime(idClienteSiebel,reason,ticket)
                 
             else:
                 response.description = MessagesDTO.ERROR_SUSCRIBER_NOT_READYTO_DISABLE
-                response.data = {"field":"idClienteSiebel", "idClienteSiebel":idClienteSiebel, "checkSuscriberRTFake":checkSuscriberRTFake}
+                response.data = {"field":"idClienteSiebel", "idClienteSiebel":idClienteSiebel, "checkSuscriberRTFake":checkSuscriberRTFake,'checkSuscriberAmazonDisabled':checkSuscriberAmazonDisabled}
                 return response.getJSON()
 
         response.code = MessagesDTO.CODE_OK
         response.description = MessagesDTO.OK_SUSCRIBER_SERVICES_DISABLED
-        response.data = {"serviceNetfix":messageNetflix,"serviceAmazon":messageAmazon}
+        response.data = {"serviceNetfix":"messageNetflix","serviceAmazon":"messageAmazon"}
         return response.getJSON()

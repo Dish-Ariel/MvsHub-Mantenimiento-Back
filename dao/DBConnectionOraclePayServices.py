@@ -1,5 +1,6 @@
 import oracledb
 import os
+import logging
 
 class ConnectionOracle:
     def getConnection_PayServices():
@@ -25,9 +26,8 @@ class ConnectionOracle:
                 dsn = os.getenv('CONNECTION_ORACLE_APRDBPROD_DSN'),
                 encoding = 'UTF-8'
             )
-            
-            print("db",mydb)
             return mydb
-        except Exception as ex:
+        except Exception as exc:
+            logging.error("getConnection_Aprdbprod:" + str(exc) + "\n\n\n")
             mydb = None
             return mydb
