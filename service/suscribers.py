@@ -278,17 +278,17 @@ class UsersService:
                     return response.getJSON()
 
             #DO update in tables, when is commited, then disable from cognito by username
-            #updateSuscriberRTFake = QuerierAprdb.updateSuscriberRTFake(idClienteSiebel)
-            #if updateSuscriberRTFake != "commited":
-            #    response.description = MessagesDTO.ERROR_UPDATEIN_BD
-            #    response.data = {"mysqlResponse":updateSuscriberRTFake}
-            #    return response.getJSON()
+            updateSuscriberRTFake = "validations ok" #QuerierAprdb.updateSuscriberRTFake(idClienteSiebel)
+            if updateSuscriberRTFake != "commited":
+                response.description = MessagesDTO.ERROR_UPDATEIN_BD
+                response.data = {"mysqlResponse":updateSuscriberRTFake}
+                return response.getJSON()
 
-            #suscriberCognitoDisabled = CognitoDishPlus.disableByUsername(usernameCognito)
+            suscriberCognitoDisabled = "validations ok"#CognitoDishPlus.disableByUsername(usernameCognito)
 
         response.code = MessagesDTO.CODE_OK
         response.description = MessagesDTO.OK_USER_DISABLED
-        response.data = {"DB":actualCount, "Cognito":"suscriberCognitoDisabled"}
+        response.data = {"DB":actualCount, "Cognito":suscriberCognitoDisabled, "Bd":updateSuscriberRTFake}
         return response.getJSON()
     
     def disableServicesRT(request,actions):
@@ -304,19 +304,22 @@ class UsersService:
             #Get and validate if user till exist in db, for call cancelations... and check if is not added to amazon db
             checkSuscriberRTFake = QuerierAprdb.checkSuscriberRTFake(idClienteSiebel)
             checkSuscriberAmazonDisabled = QuerierDishPlus.check_amazon_prime(idClienteSiebel)
-            if(checkSuscriberRTFake == "none" and checkSuscriberAmazonDisabled == "none"):
-                print (checkSuscriberRTFake)
-
-                #DO call service to cancel netflix, and insert value to bd to cancel amazon, for the lambda fuse_CancelacionesAmazon_prod
-                #messageNetflix = Requester.CancelationNetflix(idClienteSiebel)
-                #messageAmazon = QuerierDishPlus.disable_amazon_prime(idClienteSiebel,reason,ticket)
-                
-            else:
+            #Check if suscriber are disabled of table
+            if(checkSuscriberRTFake != "none"):
                 response.description = MessagesDTO.ERROR_SUSCRIBER_NOT_READYTO_DISABLE
                 response.data = {"field":"idClienteSiebel", "idClienteSiebel":idClienteSiebel, "checkSuscriberRTFake":checkSuscriberRTFake,'checkSuscriberAmazonDisabled':checkSuscriberAmazonDisabled}
                 return response.getJSON()
+            #Check if suscriber is not added to table of amazon
+            if(checkSuscriberAmazonDisabled == "none"):
+                response.description = MessagesDTO.ERROR_SUSCRIBER_ALREADY_DISABLE_AMAZON
+                response.data = {"field":"idClienteSiebel", "idClienteSiebel":idClienteSiebel, "checkSuscriberRTFake":checkSuscriberRTFake,'checkSuscriberAmazonDisabled':checkSuscriberAmazonDisabled}
+                return response.getJSON()
+            
+            #after all validations, CALL service to cancel netflix, and insert value to bd to cancel amazon, for the lambda fuse_CancelacionesAmazon_prod
+            messageNetflix = "validations ok" #Requester.CancelationNetflix(idClienteSiebel)
+            messageAmazon = "validations ok" #QuerierDishPlus.disable_amazon_prime(idClienteSiebel,reason,ticket)
 
         response.code = MessagesDTO.CODE_OK
         response.description = MessagesDTO.OK_SUSCRIBER_SERVICES_DISABLED
-        response.data = {"serviceNetfix":"messageNetflix","serviceAmazon":"messageAmazon"}
+        response.data = {"serviceNetfix":messageNetflix,"serviceAmazon":messageAmazon}
         return response.getJSON()
