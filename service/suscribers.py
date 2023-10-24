@@ -227,9 +227,15 @@ class UsersService:
         #deleteuser
         delete_user = LambdaDishPlus.deleteSuscriber(actualCount[0]["email"])
 
+        #¿LEAD IN SIEBEL?
+        delete_from_siebel_pendiente = []
+        if actualCount[0]["id_cliente_siebel"] != 0 and actualCount[0]["DTH"] == "NO":
+            delete_from_siebel_pendiente = QuerierDishPlus.delete_from_siebel(actualCount[0]["email"], actualCount[0]["id_customer"])
+
         
+
         response.code = MessagesDTO.CODE_OK
-        response.data = {"Delete_user":actualCount[0]["email"],"deleteuserResponse":delete_user["correo"], "userSes":userSes, "sesResponse":delete_user_SES, "cachepagosResponse":delete_cache_pagos, }
+        response.data = {"Delete_user":actualCount[0]["email"],"deleteuserResponse":delete_user["correo"], "userSes":userSes, "sesResponse":delete_user_SES, "cachepagosResponse":delete_cache_pagos, "Siebel_pendiente" : delete_from_siebel_pendiente}
         response.description = MessagesDTO.OK_USER_DELETED(actualCount[0], userSes)
         return response.getJSON()
 
