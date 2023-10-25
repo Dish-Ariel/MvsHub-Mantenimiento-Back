@@ -229,7 +229,7 @@ class UsersService:
 
         #¿LEAD IN SIEBEL?
         delete_from_siebel_pendiente = []
-        if actualCount[0]["id_cliente_siebel"] != 0 and actualCount[0]["DTH"] == "NO":
+        if actualCount[0]["id_cliente_siebel"] != 0 and actualCount[0]["dth"] == "NO":
             delete_from_siebel_pendiente = QuerierDishPlus.delete_from_siebel(actualCount[0]["email"], actualCount[0]["id_customer"])
 
         
