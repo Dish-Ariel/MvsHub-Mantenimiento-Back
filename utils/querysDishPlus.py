@@ -213,6 +213,30 @@ class QuerierDishPlus:
             conexion.close()
             return "none"
 
+    def delete_from_siebel(email, id_customer):
+        conexion = None
+    
+        try:
+            conexion = ConnectionMysqlDishPlus.getConnection()
+            with conexion.cursor() as cursor:
+                cursor.execute("DELETE FROM creacion_siebel_pendiente where correo IN (%s) or cliente = %s",(email,id_customer))
+                delete = cursor.rowcount
+
+        except Exception as exc:
+            if conexion != None:
+                conexion.close()
+            return {"result":"error","message":exc}
+        
+        if delete == 1:
+            conexion.commit()
+            conexion.close()
+            return "commited"
+        else:
+            conexion.close()
+            return "none"
+         
+    
+    
     def disable_amazon_prime(idClienteSiebel,reason,ticket):
         conexion = None
         try :      
