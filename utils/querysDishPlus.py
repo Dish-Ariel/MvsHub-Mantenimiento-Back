@@ -156,6 +156,32 @@ class QuerierDishPlus:
             conexion.close()
             return {"result":"ok","message":"non-result"}
     
+    def delete_domiciliation(folio):
+        conexion = None
+        
+        try:
+            conexion = ConnectionMysqlDishPlus.getConnection()
+
+            with conexion.cursor() as cursor:
+                cursor.execute("SELECT * FROM dishplus.customer_cards_domiciliation WHERE folio = %s",(str(folio)))
+                response = cursor.fetchall()
+                result = 0
+                if len(response) > 0:
+                    cursor.execute("DELETE FROM dishplus.customer_cards_domiciliation where folio = %s",(str(folio)))
+                    result = cursor.rowcount
+        except Exception as exc:
+            if conexion != None:
+                conexion.close()
+            return {"result":"error", "message":exc}
+        #response = number of logs in table customer_cards_domiciliation        
+        if result == len(response) and result > 0:
+            conexion.commit()
+            conexion.close()
+            return "commited"
+        else:
+            conexion.close()
+            return "none"
+    
     def check_payments(id_cliente_siebel, id_customer):
         conexion = None
         if id_cliente_siebel == 0 and id_customer == 0:

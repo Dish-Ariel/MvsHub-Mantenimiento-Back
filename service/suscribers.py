@@ -163,7 +163,6 @@ class UsersService:
             return response.getJSON()
         #get the user from cognito using email from db
         actualEmailCognitos = CognitoDishPlus.getSuscriberCognitoByEmail(actualCount[0]["email"])
-        #actualEmailCognitos = CognitoDishPlus.getSuscriberCognitoByEmail(request.json["emailOrId"])
         if len(actualEmailCognitos) == 0:
             #delete user 
             response.description = MessagesDTO.ERROR_EMAIL_NOT_FOUNDIN_COGNITO
@@ -200,42 +199,51 @@ class UsersService:
                     response.description = MessagesDTO.WARNING_NOTMATCH_CONGINTO_DB
                     response.data = {"fields":fields, "values":values, "email":actualCount[0]["email"]}
                     return response.getJSON()
-                #validate payments
+        #validate payments
                 
-            validate_payment = QuerierDishPlus.check_payments(actualCount[0]["id_cliente_siebel"],actualCount[0]["id_cliente"])
-            if validate_payment != "none":
-                response.description = MessagesDTO.ERROR_USER_HAS_PAYMENTS
-                response.data = {"field":validate_payment}
-                return response.getJSON()
-                
-                #delete from cache_pagos
-            delete_cache_pagos = QuerierDishPlus.delete_cache_pagos(actualCount[0]["mobile"],actualCount[0]["id_cliente"],actualCount[0]["id_cliente_siebel"])
-            if delete_cache_pagos != "commited" and delete_cache_pagos != "none":
-                response.description = MessagesDTO.ERROR_WITH_CONNECTION_DB
-                response.data = {"field":delete_cache_pagos}
-                return response.getJSON()
+        validate_payment = QuerierDishPlus.check_payments(actualCount[0]["id_cliente_siebel"],actualCount[0]["id_cliente"])
+        if validate_payment != "none":
+            response.description = MessagesDTO.ERROR_USER_HAS_PAYMENTS
+            response.data = {"field":validate_payment}
+            return response.getJSON()
+
+        #delete from cache_pagos
+        delete_cache_pagos = QuerierDishPlus.delete_cache_pagos(actualCount[0]["mobile"],actualCount[0]["id_cliente"],actualCount[0]["id_cliente_siebel"])
+        if delete_cache_pagos != "commited" and delete_cache_pagos != "none":
+            response.description = MessagesDTO.ERROR_WITH_CONNECTION_DB
+            response.data = {"field":delete_cache_pagos}
+            return response.getJSON()
             
-                #DELETE FROM PAYSERVICES 
+        # delete from customer_cards_domiciliations
+        delete_domiciliations = QuerierDishPlus.delete_domiciliation(actualCount[0]["folio"])
+        if delete_domiciliations != "commited" and delete_domiciliations != "none":
+            response.description = MessagesDTO.ERROR_WITH_CONNECTION_DB
+            response.data = {"field":delete_domiciliations}
+            return response.getJSON()
+
+                
             #¿USER IN SES?
         userSes = []
         delete_user_SES = []
+        delete_from_siebel_pendiente = []
         if actualCount[0]["id_cliente"] != 0:
             userSes = Requester.PostUniversalRequestUser(actualCount[0]["id_cliente"])
             if len (userSes) != 0:
                 delete_user_SES = LambdaDishPlus.deleteSuscriberSes(actualCount[0]["id_cliente"],actualCount[0]["email"])
-        
+                #¿LEAD IN SIEBEL?
+                if actualCount[0]["dth"] == "NO":
+                    delete_from_siebel_pendiente = QuerierDishPlus.delete_from_siebel(actualCount[0]["email"], actualCount[0]["id_customer"])
+
         #deleteuser
         delete_user = LambdaDishPlus.deleteSuscriber(actualCount[0]["email"])
 
-        #¿LEAD IN SIEBEL?
-        delete_from_siebel_pendiente = []
-        if actualCount[0]["id_cliente_siebel"] != 0 and actualCount[0]["dth"] == "NO":
-            delete_from_siebel_pendiente = QuerierDishPlus.delete_from_siebel(actualCount[0]["email"], actualCount[0]["id_customer"])
+        
 
         
 
         response.code = MessagesDTO.CODE_OK
-        response.data = {"Delete_user":actualCount[0]["email"],"deleteuserResponse":delete_user["correo"], "userSes":userSes, "sesResponse":delete_user_SES, "cachepagosResponse":delete_cache_pagos, "Siebel_pendiente" : delete_from_siebel_pendiente}
+        response.data = {"Delete_user":actualCount[0]["email"],"deleteuserResponse":delete_user["correo"], "userSes":userSes, "sesResponse":delete_user_SES,
+                        "cachepagosResponse":delete_cache_pagos, "Siebel_pendiente" : delete_from_siebel_pendiente, "cards_domiciliation":delete_domiciliations}
         response.description = MessagesDTO.OK_USER_DELETED(actualCount[0], userSes)
         return response.getJSON()
 
