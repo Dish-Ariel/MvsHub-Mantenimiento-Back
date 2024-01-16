@@ -41,15 +41,15 @@ class MessagesDTO:
 	def OK_USER_DELETED(USER, user_ses):
 		
 		if USER["dth"] == "SI" and len(user_ses) == 0 :
-			return """TIPO DE FALLA: FALLA REGISTRO APP Buen día A petición se elimina la cuenta DTH {} con correo ({}) y teléfono {} de la bd de mvshub. Saludos""".format(USER["id_customer"],USER["email"],USER["mobile"])
+			return """TIPO DE FALLA: FALLA REGISTRO APP Buen día A petición se elimina la cuenta DTH {} con estatus ({}), correo ({}) y teléfono {} de la bd de mvshub. Saludos""".format(USER["id_customer"],USER['status'],USER["email"],USER["mobile"])
 		elif USER["dth"] == "SI" and len(user_ses) != 0:
-			return """Buen día A petición se elimina la cuenta Vinculada {} con correo ({}) y teléfono {} de la bd de mvshub al igual que en SES Se reasigna con nuestros compañeros de Siebel para que nos apoyen a eliminar la carpeta de Dish digital Saludos""".format(USER["id_customer"],USER["email"],USER["mobile"])
+			return """Buen día A petición se elimina la cuenta Vinculada {} con status ({}), correo ({}) y teléfono {} de la bd de mvshub al igual que en SES Se reasigna con nuestros compañeros de Siebel para que nos apoyen a eliminar la carpeta de Dish digital Saludos""".format(USER["id_customer"],USER["email"],USER["mobile"])
 		elif USER["dth"] == "NO" and len(user_ses) == 0:
-			return """TIPO DE FALLA : FALLA REGISTRO APP Buen día A petición se elimina la cuenta Lead {} con correo ({}) y teléfono {} de la bd de mvshub. Saludos""".format(USER["id_customer"],USER["email"],USER["mobile"])
+			return """TIPO DE FALLA : FALLA REGISTRO APP Buen día A petición se elimina la cuenta Lead {} con correo ({}) y teléfono {} de la bd de mvshub. Saludos""".format(USER["id_customer"],USER['status'],USER["email"],USER["mobile"])
 		elif USER["dth"] == "NO" and len(user_ses) != 0 and USER["id_cliente_siebel"] == 0:
-			return """TIPO DE FALLA : FALLA REGISTRO APP Buen día A petición se elimina la cuenta Lead {} con correo ({}) y teléfono {} de la bd de mvshub al igual que en SES  Saludos""".format(USER["id_customer"],USER["email"],USER["mobile"])
+			return """TIPO DE FALLA : FALLA REGISTRO APP Buen día A petición se elimina la cuenta Lead {} con status({}), correo ({}) y teléfono {} de la bd de mvshub al igual que en SES  Saludos""".format(USER["id_customer"],USER['status'],USER["email"],USER["mobile"])
 		elif USER["dth"] == "NO" and len(user_ses) != 0  and USER["id_cliente_siebel"] != 0:
-			return """Buen día A petición se elimina la cuenta Lead {} con correo ({}) y teléfono {} de la bd de mvshub al igual que en SES Se reasigna con nuestros compañeros de Siebel para hacer lo propio en Siebel Saludos""".format(USER["id_customer"],USER["email"],USER["mobile"])
+			return """Buen día A petición se elimina la cuenta Lead {} con status ({}), correo ({}) y teléfono {} de la bd de mvshub al igual que en SES Se reasigna con nuestros compañeros de Siebel para hacer lo propio en Siebel Saludos""".format(USER["id_customer"],USER['status'],USER["email"],USER["mobile"])
 		else:
 			return "SE ELIMINO USUARIO CON ESTATUS NO CONSIDERADO"
 	def getJson():
