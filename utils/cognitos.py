@@ -46,3 +46,17 @@ class CognitoDishPlus:
         )
         return response
     
+    def markEmailAsValid(email):
+        client = boto3.client('cognito-idp', region_name = os.getenv('AWS_REGION'))
+        response = client.admin_update_user_attributes(
+            UserPoolId=os.getenv('AWSCLI_COGNITO_USERPOOL'),
+            Username= email,
+            UserAttributes=[
+                {
+                    'Name': 'email_verified',
+                    'Value': 'True'
+                },
+            ]
+        )
+        return 
+    

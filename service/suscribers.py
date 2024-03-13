@@ -134,6 +134,12 @@ class UsersService:
             response.data = {"cognitoResponse":updateCognitoResponse,"mysqlResponse":updateSuscriberResponse}
             return response.getJSON()
         
+        markCognitoResponse = CognitoDishPlus.markEmailAsValid(request.json["newEmail"])
+        if markCognitoResponse['ResponseMetadata']['HTTPStatusCode'] != 200:
+            response.description = MessagesDTO.ERROR_MARKINGIN_COGNITO
+            response.data = {"cognitoResponse":markCognitoResponse,"mysqlResponse":updateSuscriberResponse}
+            return response.getJSON()
+        
         userSes = Requester.PostUniversalRequestUser(actualCount[0]["id_customer"])
         updateInSes = []
         if len (userSes) != 0:
@@ -141,6 +147,7 @@ class UsersService:
             response.description = MessagesDTO.OK_USER_UPDATED_SES(request.json["newEmail"],actualCount[0]["email"])
         else:
             response.description = MessagesDTO.OK_USER_UPDATED(request.json["newEmail"],actualCount[0]["email"])
+
         response.code = MessagesDTO.CODE_OK
         response.data = {"lastEmail":actualCount[0]["email"], "userSes":len(userSes), "sesResponse":updateInSes, "mysqlResponse":updateSuscriberResponse, "cognitoResponse":updateCognitoResponse}
 
