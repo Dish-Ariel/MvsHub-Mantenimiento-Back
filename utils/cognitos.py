@@ -58,5 +58,5 @@ class CognitoDishPlus:
                 },
             ]
         )
-        return 
+        return response
     
