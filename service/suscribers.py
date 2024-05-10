@@ -228,6 +228,11 @@ class UsersService:
             response.data = {"field":delete_domiciliations}
             return response.getJSON()
 
+        delete_ventas = QuerierDishPlus.delete_ventas(actualCount[0]["folio"])
+        if delete_ventas != "commited" and delete_ventas != "none":
+            response.description = MessagesDTO.ERROR_WITH_CONNECTION_DB
+            response.data = {"field":delete_ventas}
+            return response.getJSON()
                 
             #¿USER IN SES?
         userSes = []
@@ -243,14 +248,19 @@ class UsersService:
 
         #deleteuser
         delete_user = LambdaDishPlus.deleteSuscriber(actualCount[0]["email"])
-
-        
+        #VALIDATE IF LAMBDA DELETED THE CUSTOMER
+        if delete_user["status_code"] != 200:
+            response.code = MessagesDTO.CODE_ERROR
+            response.data = {"Delete_user":actualCount[0]["email"],"deleteuserResponse":delete_user, "userSes":userSes, "sesResponse":delete_user_SES,
+                        "cachepagosResponse":delete_cache_pagos, "Siebel_pendiente" : delete_from_siebel_pendiente, "cards_domiciliation":delete_domiciliations, "ventas": delete_ventas}
+            response.description = MessagesDTO.ERROR_WITH_LAMBDA
+            return response.getJSON()
 
         
 
         response.code = MessagesDTO.CODE_OK
         response.data = {"Delete_user":actualCount[0]["email"],"deleteuserResponse":delete_user, "userSes":userSes, "sesResponse":delete_user_SES,
-                        "cachepagosResponse":delete_cache_pagos, "Siebel_pendiente" : delete_from_siebel_pendiente, "cards_domiciliation":delete_domiciliations}
+                        "cachepagosResponse":delete_cache_pagos, "Siebel_pendiente" : delete_from_siebel_pendiente, "cards_domiciliation":delete_domiciliations, "ventas": delete_ventas}
         response.description = MessagesDTO.OK_USER_DELETED(actualCount[0], userSes)
         return response.getJSON()
 
