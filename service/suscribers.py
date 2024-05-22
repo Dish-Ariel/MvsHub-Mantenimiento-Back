@@ -237,10 +237,12 @@ class UsersService:
             #¿USER IN SES?
         userSes = []
         delete_user_SES = []
+        delete_devices = []
         delete_from_siebel_pendiente = []
         if actualCount[0]["id_cliente"] != 0:
             userSes = Requester.PostUniversalRequestUser(actualCount[0]["id_cliente"])
             if len (userSes) != 0:
+                delete_devices = LambdaDishPlus.deleteDevices(actualCount[0]["id_cliente"])
                 delete_user_SES = LambdaDishPlus.deleteSuscriberSes(actualCount[0]["id_cliente"],actualCount[0]["email"])
                 #¿LEAD IN SIEBEL?
                 if actualCount[0]["dth"] == "NO":
@@ -251,7 +253,7 @@ class UsersService:
         #VALIDATE IF LAMBDA DELETED THE CUSTOMER
         if delete_user["status_code"] != 200:
             response.code = MessagesDTO.CODE_ERROR
-            response.data = {"Delete_user":actualCount[0]["email"],"deleteuserResponse":delete_user, "userSes":userSes, "sesResponse":delete_user_SES,
+            response.data = {"Delete_user":actualCount[0]["email"],"deleteuserResponse":delete_user, "userSes":userSes, "sesResponse":delete_user_SES,"devices_deleted":delete_devices,
                         "cachepagosResponse":delete_cache_pagos, "Siebel_pendiente" : delete_from_siebel_pendiente, "cards_domiciliation":delete_domiciliations, "ventas": delete_ventas}
             response.description = MessagesDTO.ERROR_WITH_LAMBDA
             return response.getJSON()
@@ -259,7 +261,7 @@ class UsersService:
         
 
         response.code = MessagesDTO.CODE_OK
-        response.data = {"Delete_user":actualCount[0]["email"],"deleteuserResponse":delete_user, "userSes":userSes, "sesResponse":delete_user_SES,
+        response.data = {"Delete_user":actualCount[0]["email"],"deleteuserResponse":delete_user, "userSes":userSes, "sesResponse":delete_user_SES,"devices_deleted":delete_devices,
                         "cachepagosResponse":delete_cache_pagos, "Siebel_pendiente" : delete_from_siebel_pendiente, "cards_domiciliation":delete_domiciliations, "ventas": delete_ventas}
         response.description = MessagesDTO.OK_USER_DELETED(actualCount[0], userSes)
         return response.getJSON()
