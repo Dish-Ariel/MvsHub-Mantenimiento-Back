@@ -35,3 +35,30 @@ class LambdaDishPlus:
             
         except Exception as exc:
             return exc
+    
+    def deleteDevices(id_customer):
+        try:
+            payload = {
+                "url": os.environ.get("URL_DEVICES_SES").format(id_customer = id_customer),
+                "method": "GET"
+            }
+            lambda_client = boto3.client('lambda',region_name="us-east-1")
+            lambda_url = os.environ.get("UNIVERSAL_REQUEST")
+            response_json = lambda_client.invoke(FunctionName = lambda_url, InvocationType = "RequestResponse",Payload = json.dumps(payload))
+            response = json.loads(response_json['Payload'].read())
+            if response:
+                        if "deviceDTOList" in response and response["deviceDTOList"]:
+                            payload = {
+                                "url": os.environ.get("DELETE_DEVICES"),
+                                "request": {
+                                    "reqIds": [reqId["deviceId"] for reqId in response["deviceDTOList"]]
+                                },
+                                "method": "POST"
+                            }
+                            lambda_client = boto3.client('lambda',region_name="us-east-1")
+                            lambda_url = os.environ.get("UNIVERSAL_REQUEST")
+                            response_json = lambda_client.invoke(FunctionName = lambda_url, InvocationType = "RequestResponse",Payload = json.dumps(payload))
+                            response = json.loads(response_json['Payload'].read())
+                            return response
+        except Exception as e:
+            return [e]
