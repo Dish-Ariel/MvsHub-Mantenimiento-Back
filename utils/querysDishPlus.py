@@ -109,7 +109,7 @@ class QuerierDishPlus:
             return "commited"
         else:
             conexion.close()
-            return {"result":"ok","message":"non-result"}
+            return {"result":"ok","message":"non-result","method":"updateSuscriber"}
     
     def validate_sub(sub):
         conexion = None
@@ -154,7 +154,7 @@ class QuerierDishPlus:
             return "commited"
         else:
             conexion.close()
-            return {"result":"ok","message":"non-result"}
+            return {"result":"ok","message":"non-result","method":"update_username"}
     
     def delete_domiciliation(folio):
         conexion = None
@@ -335,4 +335,46 @@ class QuerierDishPlus:
         if len(payment) >= 1:
             return "exist"
         else:
-            return "none"    
+            return "none"
+        
+    def getEmailActivationLink(actualEmail):
+        conexion = None
+        suscriber = []
+
+        try:
+            conexion = ConnectionMysqlDishPlus.getConnection()
+            with conexion.cursor() as cursor:
+                cursor.execute("SELECT * from admin_mvshub_activation_link where email = %s", (actualEmail))
+                suscriber = cursor.fetchall()
+            conexion.close()
+        except Exception as exc:
+            if conexion != None:
+                conexion.close()
+            return {"result":"error","message":exc}
+        
+        if len(suscriber) == 1: 
+            return suscriber
+        else:
+            return "none"
+
+    def updateEmailActivationLink(actualEmail,newEmail):
+        conexion = None
+        result = 0
+
+        try:
+            conexion = ConnectionMysqlDishPlus.getConnection()
+            with conexion.cursor() as cursor:
+                cursor.execute("UPDATE admin_mvshub_activation_link SET email = %s WHERE email = %s", (newEmail,actualEmail))
+                result = cursor.rowcount
+        except Exception as exc:
+            if conexion != None:
+                conexion.close()
+            return {"result":"error","message":exc}
+            
+        if result == 1: 
+            conexion.commit()
+            conexion.close()
+            return "commited"
+        else:
+            conexion.close()
+            return {"result":"ok","message":"non-result","method":"updateEmailActivationLink"}

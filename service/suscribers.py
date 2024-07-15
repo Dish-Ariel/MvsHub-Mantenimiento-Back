@@ -128,6 +128,15 @@ class UsersService:
             response.data = {"mysqlResponse":updateSuscriberResponse}
             return response.getJSON()
         
+        #Check in the admin_mvshub_activation_link table, if the account exist, for update it
+        existActivationLink = QuerierDishPlus.getEmailActivationLink(actualCount[0]["email"])
+        if existActivationLink != "none":
+            updateActivationLink = QuerierDishPlus.updateEmailActivationLink(actualCount[0]["email"],request.json["newEmail"])
+            if(updateActivationLink != "commited"):
+                response.description = MessagesDTO.ERROR_UPDATEIN_BD
+                response.data = {"mysqlResponse":updateActivationLink}
+                return response.getJSON()
+
         updateCognitoResponse = CognitoDishPlus.updateSuscriberEmailCognito(emailOrIdCognitos[0]["Username"],request.json["newEmail"])
         if updateCognitoResponse['ResponseMetadata']['HTTPStatusCode'] != 200:
             response.description = MessagesDTO.ERROR_UPDATEIN_COGNITO
@@ -149,7 +158,7 @@ class UsersService:
             response.description = MessagesDTO.OK_USER_UPDATED(request.json["newEmail"],actualCount[0]["email"])
 
         response.code = MessagesDTO.CODE_OK
-        response.data = {"lastEmail":actualCount[0]["email"], "userSes":len(userSes), "sesResponse":updateInSes, "mysqlResponse":updateSuscriberResponse, "cognitoResponse":updateCognitoResponse}
+        response.data = {"lastEmail":actualCount[0]["email"], "userSes":len(userSes), "sesResponse":updateInSes, "mysqlResponse":updateSuscriberResponse, "cognitoResponse":updateCognitoResponse, "existActivationLink":existActivationLink}
 
         return response.getJSON()
         
@@ -168,6 +177,7 @@ class UsersService:
             response.description = MessagesDTO.ERROR_SUSCRIBER_NOT_FOUNDIN_BD
             response.data = {"field":"emailOrId", "emailOrId":request.json["emailOrId"]}
             return response.getJSON()
+        
         #get the user from cognito using email from db
         actualEmailCognitos = CognitoDishPlus.getSuscriberCognitoByEmail(actualCount[0]["email"])
         if len(actualEmailCognitos) == 0:
@@ -206,13 +216,24 @@ class UsersService:
                     response.description = MessagesDTO.WARNING_NOTMATCH_CONGINTO_DB
                     response.data = {"fields":fields, "values":values, "email":actualCount[0]["email"]}
                     return response.getJSON()
+        
         #validate payments
-                
         validate_payment = QuerierDishPlus.check_payments(actualCount[0]["id_cliente_siebel"],actualCount[0]["id_cliente"])
         if validate_payment != "none":
             response.description = MessagesDTO.ERROR_USER_HAS_PAYMENTS
             response.data = {"field":validate_payment}
             return response.getJSON()
+        
+        #validate if data source is telmex, and if exist in admin_mvshub_activation_link
+        if (actualCount[0]["source"] == "telmex" and (actualCount[0]["status"] == "customer_ses_success" or actualCount[0]["status"] == "customer_lead_SES" or actualCount[0]["status"] == "customer_lead") and actualCount[0]["id_cliente_siebel"] != "0" and str(actualCount[0]["id_customer"]).startswith("DISH") == False):
+            #double payment validation in case of remove the last validation to force user-deletetd method (in this case cannot remove this validation where the source is telmex)
+            validate_payment = QuerierDishPlus.check_payments(actualCount[0]["id_cliente_siebel"],actualCount[0]["id_cliente"])
+            existActivationLink = QuerierDishPlus.getEmailActivationLink(actualCount[0]["email"])
+
+            if validate_payment != "none" or existActivationLink != "none":
+                response.description = MessagesDTO.ERROR_CANNOT_DELETE_ONLY_UPDATE
+                response.data = {"source":actualCount[0]["source"], "status":actualCount[0]["status"], "id_cliente_siebel":actualCount[0]["id_cliente_siebel"], "id_customer":actualCount[0]["id_customer"], "validate_payment":validate_payment, "existActivationLink":existActivationLink}
+                return response.getJSON()
 
         #delete from cache_pagos
         delete_cache_pagos = QuerierDishPlus.delete_cache_pagos(actualCount[0]["mobile"],actualCount[0]["id_cliente"],actualCount[0]["id_cliente_siebel"])
