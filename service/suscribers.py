@@ -224,16 +224,11 @@ class UsersService:
             response.data = {"field":validate_payment}
             return response.getJSON()
         
-        #validate if data source is telmex, and if exist in admin_mvshub_activation_link
-        if (actualCount[0]["source"] == "telmex" and (actualCount[0]["status"] == "customer_ses_success" or actualCount[0]["status"] == "customer_lead_SES" or actualCount[0]["status"] == "customer_lead") and actualCount[0]["id_cliente_siebel"] != "0" and str(actualCount[0]["id_customer"]).startswith("DISH") == False):
-            #double payment validation in case of remove the last validation to force user-deletetd method (in this case cannot remove this validation where the source is telmex)
-            validate_payment = QuerierDishPlus.check_payments(actualCount[0]["id_cliente_siebel"],actualCount[0]["id_cliente"])
-            existActivationLink = QuerierDishPlus.getEmailActivationLink(actualCount[0]["email"])
-
-            if validate_payment != "none" or existActivationLink != "none":
-                response.description = MessagesDTO.ERROR_CANNOT_DELETE_ONLY_UPDATE
-                response.data = {"source":actualCount[0]["source"], "status":actualCount[0]["status"], "id_cliente_siebel":actualCount[0]["id_cliente_siebel"], "id_customer":actualCount[0]["id_customer"], "validate_payment":validate_payment, "existActivationLink":existActivationLink}
-                return response.getJSON()
+        #validate if data source is telmex or dish with a purchase
+        if (actualCount[0]["source"] == "telmex" or (actualCount[0]["source"] == "dish" and actualCount[0]["id_cliente_siebel"] != 0)):
+            response.description = MessagesDTO.ERROR_CANNOT_DELETE_ONLY_UPDATE
+            response.data = {"source":actualCount[0]["source"], "status":actualCount[0]["status"], "id_cliente_siebel":actualCount[0]["id_cliente_siebel"], "id_customer":actualCount[0]["id_customer"]}
+            return response.getJSON()
 
         #delete from cache_pagos
         delete_cache_pagos = QuerierDishPlus.delete_cache_pagos(actualCount[0]["mobile"],actualCount[0]["id_cliente"],actualCount[0]["id_cliente_siebel"])
