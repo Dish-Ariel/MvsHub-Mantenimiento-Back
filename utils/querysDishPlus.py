@@ -293,7 +293,23 @@ class QuerierDishPlus:
             conexion.close()
             return "none"
          
-    
+    def insertDetailCustomer(data):
+        conexion = None
+        try:
+            conexion = ConnectionMysqlDishPlus.getConnection()
+            with conexion.cursor() as cursor:
+                cursor.execute("INSERT INTO detail_customer_respaldo VALUES (%s,%s,%s,%s,%s,%s,%s,%s)",(data[0]['folio'],data[0]['name']
+                                                                                                        ,data[0]['surname'],data[0]['mobile']
+                                                                                                        ,data[0]['dth'],data[0]['payment_type']
+                                                                                                        ,data[0]['validateCel'],data[0]['DomiciliedFlag']))
+            conexion.commit()
+            conexion.close()
+            return "commited"
+        except Exception as exc:
+            if conexion != None:
+                conexion.close()
+            return {"result":"error","message":exc}
+        
     
     def disable_amazon_prime(idClienteSiebel,reason,ticket):
         conexion = None
@@ -357,6 +373,28 @@ class QuerierDishPlus:
         else:
             return "none"
 
+    def deleteEmailActivationLink(actualEmail):
+        conexion = None
+        try:
+            conexion = ConnectionMysqlDishPlus.getConnection()
+            with conexion.cursor() as cursor:
+                cursor.execute("DELETE FROM admin_mvshub_activation_link where email = %s",(actualEmail))
+                delete = cursor.rowcount
+
+        except Exception as exc:
+            if conexion != None:
+                conexion.close()
+            return {"result":"error","message":exc}
+        
+        if delete == 1:
+            conexion.commit()
+            conexion.close()
+            return "commited"
+        else:
+            conexion.close()
+            return "none"
+        
+    
     def updateEmailActivationLink(actualEmail,newEmail):
         conexion = None
         result = 0
