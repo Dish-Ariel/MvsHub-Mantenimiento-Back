@@ -171,13 +171,13 @@ class UsersService:
             response.description = MessagesDTO.ERROR_INVALID_ID_OR_EMAIL
             response.data = {"field":"emailOrId"}
             return response.getJSON()
-        
+ 
         actualCount = QuerierDishPlus.getSuscriber(isEmailOrId,request.json["emailOrId"])
         if actualCount == "none":
             response.description = MessagesDTO.ERROR_SUSCRIBER_NOT_FOUNDIN_BD
             response.data = {"field":"emailOrId", "emailOrId":request.json["emailOrId"]}
             return response.getJSON()
-        
+            
         #get the user from cognito using email from db
         actualEmailCognitos = CognitoDishPlus.getSuscriberCognitoByEmail(actualCount[0]["email"])
         if len(actualEmailCognitos) == 0:
@@ -185,7 +185,7 @@ class UsersService:
             response.description = MessagesDTO.ERROR_EMAIL_NOT_FOUNDIN_COGNITO
             response.data = {"field":"emailOrId"}
             return response.getJSON()
-        #validate user in cognito = user in bd
+            #validate user in cognito = user in bd
         else: 
             for i in actualEmailCognitos[0]["Attributes"]:
                 fields = []
@@ -197,7 +197,7 @@ class UsersService:
                     if str(actualCount[0]["surname"]).lower() not in str(i["Value"]).lower():
                         fields.append("surName")
                         values.append("bd:" + str(actualCount[0]["surname"]).lower() + " (NOT IN) cognito:" + str(i["Value"]).lower())
-                
+                    
                 if i["Name"] == "phone_number":
                     if actualCount[0]["mobile"] not in i["Value"]:
                         fields.append("mobile")
@@ -210,25 +210,26 @@ class UsersService:
                             if status != "commited":
                                 fields.append("update_username_failed")
                                 values.append(str(response))
-
-                if len(fields)>0:
-                    response.code = MessagesDTO.CODE_WARNIG
-                    response.description = MessagesDTO.WARNING_NOTMATCH_CONGINTO_DB
-                    response.data = {"fields":fields, "values":values, "email":actualCount[0]["email"]}
-                    return response.getJSON()
-        
-        #validate payments
-        validate_payment = QuerierDishPlus.check_payments(actualCount[0]["id_cliente_siebel"],actualCount[0]["id_cliente"])
-        if validate_payment != "none":
-            response.description = MessagesDTO.ERROR_USER_HAS_PAYMENTS
-            response.data = {"field":validate_payment}
-            return response.getJSON()
-        
-        #validate if data source is telmex or dish with a purchase
-        if (actualCount[0]["source"] == "telmex" or (actualCount[0]["source"] == "dish" and actualCount[0]["id_cliente_siebel"] != 0)):
-            response.description = MessagesDTO.ERROR_CANNOT_DELETE_ONLY_UPDATE
-            response.data = {"source":actualCount[0]["source"], "status":actualCount[0]["status"], "id_cliente_siebel":actualCount[0]["id_cliente_siebel"], "id_customer":actualCount[0]["id_customer"]}
-            return response.getJSON()
+        if request.json["force"] != 'Y':  
+            if len(fields)>0:
+                response.code = MessagesDTO.CODE_WARNIG
+                response.description = MessagesDTO.WARNING_NOTMATCH_CONGINTO_DB
+                response.data = {"fields":fields, "values":values, "email":actualCount[0]["email"]}
+                return response.getJSON()
+            
+            #validate payments
+            validate_payment = QuerierDishPlus.check_payments(actualCount[0]["id_cliente_siebel"],actualCount[0]["id_cliente"])
+            if validate_payment != "none":
+                response.description = MessagesDTO.ERROR_USER_HAS_PAYMENTS
+                response.data = {"field":validate_payment}
+                return response.getJSON()
+            
+            #validate if data source is telmex or dish with a purchase
+            source = ["telmex","pagWebTelmexG3"]
+            if (actualCount[0]["source"] in source or (actualCount[0]["source"] == "dish" and actualCount[0]["id_cliente_siebel"] != 0)):
+                response.description = MessagesDTO.ERROR_CANNOT_DELETE_ONLY_UPDATE
+                response.data = {"source":actualCount[0]["source"], "status":actualCount[0]["status"], "id_cliente_siebel":actualCount[0]["id_cliente_siebel"], "id_customer":actualCount[0]["id_customer"]}
+                return response.getJSON()
 
         #delete from cache_pagos
         delete_cache_pagos = QuerierDishPlus.delete_cache_pagos(actualCount[0]["mobile"],actualCount[0]["id_cliente"],actualCount[0]["id_cliente_siebel"])
@@ -250,6 +251,17 @@ class UsersService:
             response.data = {"field":delete_ventas}
             return response.getJSON()
                 
+        # delete from admin_mvshub_activation_link
+        delete_admin_mvshub_activation_link = "none"
+        existActivationLink = QuerierDishPlus.getEmailActivationLink(actualCount[0]["email"])
+        if existActivationLink != "none" and len(existActivationLink) ==1:            
+            delete_admin_mvshub_activation_link = QuerierDishPlus.deleteEmailActivationLink(actualCount[0]["email"])
+            if delete_admin_mvshub_activation_link != "commited" and delete_admin_mvshub_activation_link != "none":
+                response.description = MessagesDTO.ERROR_WITH_CONNECTION_DB
+                response.data = {"field":delete_admin_mvshub_activation_link}
+                return response.getJSON()
+            
+        
             #¿USER IN SES?
         userSes = []
         delete_user_SES = []
@@ -263,14 +275,14 @@ class UsersService:
                 #¿LEAD IN SIEBEL?
                 if actualCount[0]["dth"] == "NO":
                     delete_from_siebel_pendiente = QuerierDishPlus.delete_from_siebel(actualCount[0]["email"], actualCount[0]["id_customer"])
-
+        detail_customer = QuerierDishPlus.insertDetailCustomer(actualCount)
         #deleteuser
         delete_user = LambdaDishPlus.deleteSuscriber(actualCount[0]["email"])
         #VALIDATE IF LAMBDA DELETED THE CUSTOMER
         if delete_user["status_code"] != 200:
             response.code = MessagesDTO.CODE_ERROR
             response.data = {"Delete_user":actualCount[0]["email"],"deleteuserResponse":delete_user, "userSes":userSes, "sesResponse":delete_user_SES,"devices_deleted":delete_devices,
-                        "cachepagosResponse":delete_cache_pagos, "Siebel_pendiente" : delete_from_siebel_pendiente, "cards_domiciliation":delete_domiciliations, "ventas": delete_ventas}
+                        "cachepagosResponse":delete_cache_pagos, "Siebel_pendiente" : delete_from_siebel_pendiente, "cards_domiciliation":delete_domiciliations, "ventas": delete_ventas, "detail_customer":detail_customer}
             response.description = MessagesDTO.ERROR_WITH_LAMBDA
             return response.getJSON()
 
@@ -278,7 +290,7 @@ class UsersService:
 
         response.code = MessagesDTO.CODE_OK
         response.data = {"Delete_user":actualCount[0]["email"],"deleteuserResponse":delete_user, "userSes":userSes, "sesResponse":delete_user_SES,"devices_deleted":delete_devices,
-                        "cachepagosResponse":delete_cache_pagos, "Siebel_pendiente" : delete_from_siebel_pendiente, "cards_domiciliation":delete_domiciliations, "ventas": delete_ventas}
+                        "cachepagosResponse":delete_cache_pagos, "Siebel_pendiente" : delete_from_siebel_pendiente, "cards_domiciliation":delete_domiciliations, "ventas": delete_ventas, "deleteActivationLink":delete_admin_mvshub_activation_link,"detail_customer":detail_customer}
         response.description = MessagesDTO.OK_USER_DELETED(actualCount[0], userSes)
         return response.getJSON()
 
