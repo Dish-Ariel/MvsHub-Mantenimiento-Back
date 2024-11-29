@@ -1,12 +1,16 @@
 from flask import Flask
 from flask import request
 from dotenv import load_dotenv
+from utils import customLogger
 from werkzeug.exceptions import HTTPException
 from service.suscribers import UsersService
 from dto.ResponseDTO import ResponseDTO
+import logging
 
 app = Flask(__name__)
 load_dotenv()
+customLogger.initLogger()
+logger = logging.getLogger('activity')
 
 @app.route("/")
 def main():
@@ -25,12 +29,18 @@ def getSuscriberEmail(idOrEmail):
 
 @app.route("/updateSuscriberEmail", methods = ['POST'])
 def updateSuscriberEmail():
-    return UsersService.updateSuscriberEmail(request)
+    logger.info("updateSuscriberEmail req=> {0}".format(str(request)))
+    response = UsersService.updateSuscriberEmail(request)
+    logger.info("updateSuscriberEmail res=> {0}".format(str(response)))
+    return response
     #return {"actionDummy":"Updated"}
 
 @app.route("/deleteSuscriberEmail", methods = ['POST'])
 def deleteSuscriberEmail():
-    return UsersService.deleteSuscriber(request)
+    logger.info("deleteSuscriberEmail req=> {0}".format(str(request)))
+    response = UsersService.deleteSuscriber(request)
+    logger.info("deleteSuscriberEmail res=> {0}".format(str(response)))
+    return response
     #return {"actionDummy":"deleted"}
 
 @app.route("/disableSuscriberRT", methods = ['POST'])
