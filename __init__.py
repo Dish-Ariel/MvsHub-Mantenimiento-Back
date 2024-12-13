@@ -55,9 +55,10 @@ def disableServicesRT():
     return UsersService.disableServicesRT(request,actions)
     #return {"actionDummy":"deleted"}
 
-@app.route("/getStatus",  methods = ['GET'])
-def getStatus():
-    return {"statusDummy":"1"}
+@app.route("/disableAccounts",  methods = ['POST'])
+def disableAccounts():
+    #Agregar la carpeta files/deactivations en el directorio actual para poder procesar este req
+    return UsersService.disableAccounts()
 
 # HANDLE ERROR
 

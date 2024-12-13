@@ -384,3 +384,7 @@ class UsersService:
         response.description = MessagesDTO.OK_SUSCRIBER_SERVICES_DISABLED
         response.data = {"serviceNetfix":messageNetflix,"serviceAmazon":messageAmazon}
         return response.getJSON()
+    
+    def disableAccounts():
+        response = ResponseDTO()
+        return response.getJSON()
