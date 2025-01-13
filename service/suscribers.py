@@ -1,11 +1,19 @@
 from dto.ResponseDTO import ResponseDTO
 from dto.MensajesDTO import MessagesDTO
+from dao.querysAmazon import QuerierAmazonPrime
 from utils.validations import SuscriberValidator
 from utils.querysDishPlus import QuerierDishPlus
 from utils.querysAprdb import QuerierAprdb
 from utils.requests import Requester
 from utils.cognitos import CognitoDishPlus
+from lambda_aws.logInsights import LogInsightsDishPlus
 from lambda_aws.lambdas import LambdaDishPlus
+from utils import customLogger
+import logging
+from datetime import datetime
+import datetime as datetimer
+import json, re
+import time
 
 class UsersService:
 
@@ -262,7 +270,7 @@ class UsersService:
                 return response.getJSON()
             
         
-            #¿USER IN SES?
+        #¿USER IN SES?
         userSes = []
         delete_user_SES = []
         delete_devices = []
@@ -387,4 +395,113 @@ class UsersService:
     
     def disableAccounts():
         response = ResponseDTO()
+        return response.getJSON()
+    
+    def fixProviderAmazon(request):
+        loggerFxAmz = logging.getLogger('amazonPrime')
+
+        response = ResponseDTO()
+        client = request.json["idCustomerSes"]
+        logWeeks = request.json["logWeeks"]
+        isForced = request.json["force"]
+        toleranceDays = request.json["toleranceDays"]
+
+        loggerFxAmz.info("*********** entro a:{0} buscar por: {1} semana(s)".format(client,logWeeks))
+        response.data["client"] = client
+        isEmailOrId = SuscriberValidator.whatIsIdUser(client)
+        if isEmailOrId == "error": 
+            response.data["result"] = MessagesDTO.ERROR_INVALID_ID_OR_EMAIL
+            response.description = "Buen día El suscriptor ingresado es erroneo Saludos"
+            return response.getJSON()
+        
+        #Query for get suscriber data from dishplus
+        actualCount = QuerierDishPlus.getSuscriber(isEmailOrId,client)
+        loggerFxAmz.info("actualCount:{0} isEmailOrId:{1}".format(str(actualCount),str(isEmailOrId)))
+        if actualCount == "none" or actualCount == "error":
+            response.data["result"] = "ERROR_SUSCRIBER_NOT_FOUNDIN_DISHPLUS"
+            response.description = "Buen día No se puede localizar la cuenta en la bd de dishplus Saludos"
+            return response.getJSON()
+
+        #Get suscriber data from amazon
+        amazonSuscriber = QuerierAmazonPrime.getSuscriber(actualCount[0]["id_cliente_siebel"])
+        loggerFxAmz.info("amazonSuscriber:{0}".format(str(amazonSuscriber)))
+        if amazonSuscriber == "none":
+            response.data["result"] = "ERROR_SUSCRIBER_NOT_FOUNDIN_AMAZON"
+            response.description = "Buen día No se puede localizar la cuenta en la bd de Amazon Saludos"
+            return response.getJSON()
+
+        amazonLogsToday = LogInsightsDishPlus.getAmazonProviderLogs(actualCount[0]["id_cliente_siebel"],toleranceDays,"days",False)
+        if(len(amazonLogsToday)!=0 and isForced == "N"):
+            loggerFxAmz.info("amazonLogsToday:{0}".format(str(amazonLogsToday)))
+            #bodySendedToday = LogInsightsDishPlus.getBodyToResend(amazonLogsToday,None,None)
+            #loggerFxAmz.info("bodySendedToday:{0}".format( json.dumps(bodySendedToday, separators=(',', ':')) ))
+            response.data["result"] = "ERROR_LOGS_EXECUTED_TODAY"
+            response.description = "Buen día EL día de hoy hubo una ejecución favor de validar Saludos"
+            return response.getJSON()
+        
+        #Get actual offer from ses (of amazon prime)
+        amazonPackage = Requester.PostUniversalRequestPackage(actualCount[0]["id_customer"],["AMAZON PRIME ","PAQUETE ENTRETENIMIENTO"])
+        loggerFxAmz.info("amazonPackage:{0}".format(str(amazonPackage)))
+
+        if len (amazonPackage) == 0:
+            response.data["result"] = "ERROR_PACKAGE_NOT_FOUNDIN_SES"
+            response.description = "Buen día No se ve el paquete amazon en SES Saludos"
+            return response.getJSON()
+        
+        if(amazonPackage[0]["expireDt"] == None):
+            response.data["result"] = "ERROR_PACKAGE_NOT_AVALIALBLE_SES"
+            response.description = "Buen día No se ve vigencia en el paquete amazon en SES Saludos"
+            return response.getJSON()
+        else:
+            readDate = datetime.strptime(amazonPackage[0]["expireDt"],"%m/%d/%Y")
+            #MANUAL
+            newDate = readDate + datetimer.timedelta(days=2)
+
+        actionTarget = ""
+        if(amazonSuscriber[0]["status"] == "SUBSCRIPTION_TERMINATION_SUCCEEDED"):
+            query = "1NSERT INT0 suscriptors (id_cliente,id_customer,id_suscription,id_product,date_suscription,date_update,status,orderNumber) VALUES ({0},'{1}','{2}','{3}','{4}','{5}','{6}','{7}')".format(amazonSuscriber[0]["id_cliente"],amazonSuscriber[0]["id_customer"],amazonSuscriber[0]["id_suscription"],amazonSuscriber[0]["id_product"],amazonSuscriber[0]["date_suscription"],amazonSuscriber[0]["date_update"],amazonSuscriber[0]["status"],amazonSuscriber[0]["orderNumber"])
+            loggerFxAmz.info(query)
+            actionTarget = "ADD"
+
+        elif (amazonSuscriber[0]["status"] == "SUBSCRIPTION_SUSPENDED"):
+            actionTarget = "RESUME"
+        else:
+            response.data["result"] = "ERROR_SUSCRIBER_STATUS_{0}".format(amazonSuscriber[0]["status"])
+            actionTarget = "NONE"
+            response.description = "Buen día Favor de validar el estatus de la cuenta, ya que es {0} Saludos".format(amazonSuscriber[0]["status"])
+            return response.getJSON()
+        
+        amazonLogs = LogInsightsDishPlus.getAmazonProviderLogs(actualCount[0]["id_cliente_siebel"],logWeeks,"weeks",True)
+        loggerFxAmz.info("amazonLogs:{0}".format(str(amazonLogs)))
+        if(len(amazonLogs)==0):
+            response.data["result"] = "ERROR_LOGS_NOTFOUND"
+            response.description = "Buen día No se ven logs previos de esta cuenta en aws Saludos"
+            return response.getJSON()
+        
+        if(amazonSuscriber[0]["status"] == "SUBSCRIPTION_TERMINATION_SUCCEEDED"):
+            deletedAmazon = QuerierAmazonPrime.deleteSuscriber(actualCount[0]["id_cliente_siebel"])
+            if(deletedAmazon == "none" or deletedAmazon == "error"):
+                response.data["result"] = "ERROR_TO_DELETE_STATUS_{0}".format(deletedAmazon)
+                response.description = "Error en bd al eliminar"
+                return response.getJSON()
+            time.sleep(2)
+        
+        bodyToSend = LogInsightsDishPlus.getBodyToResend(amazonLogs,newDate,actionTarget)
+        loggerFxAmz.info("bodyToSend:{0}".format( json.dumps(bodyToSend, separators=(',', ':')) ))
+        
+        #SEND the new body to lambda for provide amazon, new date with more thays and action target 
+        #MANUAL
+
+        if(actionTarget=="RESUME" or actionTarget == "ADD"):
+            lambdaProviderAmazonRes = LambdaDishPlus.sendLambdaFunction("gdev_providerAmazon_prod",bodyToSend,"us-east-1")    
+            #loggerFxAmz.info("lambdaProviderAmazonRes:{0}".format( json.dumps(lambdaProviderAmazonRes, separators=(',', ':'))) )
+            loggerFxAmz.info("lambdaProviderAmazonRes:{0}".format( str(lambdaProviderAmazonRes) ))
+            response.code = MessagesDTO.CODE_OK
+            response.data["result"] = "OK {0}".format(actionTarget)
+            response.description = "Buen día se reanuda la vigencia solicitada Saludos"
+        #else:
+        #    response.code = MessagesDTO.CODE_WARNIG
+        #    response.data["result"] = json.dumps(bodyToSend, separators=(',', ':'))
+        #    response.description = "Borrar en bd de amazon y ejecutar en aws \tBuen día se reanuda la vigencia solicitada Saludos"
+
         return response.getJSON()

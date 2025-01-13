@@ -9,7 +9,9 @@ import logging
 
 app = Flask(__name__)
 load_dotenv()
-customLogger.initLogger()
+
+customLogger.initLogger("amazonPrime")
+customLogger.initLogger('activity')
 logger = logging.getLogger('activity')
 
 @app.route("/")
@@ -59,6 +61,14 @@ def disableServicesRT():
 def disableAccounts():
     #Agregar la carpeta files/deactivations en el directorio actual para poder procesar este req
     return UsersService.disableAccounts()
+
+@app.route("/fixProviderAmazon",  methods = ['POST'])
+def fixProviderAmazon():
+    actions = ["MVSHUB.fixProviderAmazon"]
+    logger.info("fixProviderAmazon req=> {0}".format( str(request.data) ))
+    response = UsersService.fixProviderAmazon(request)
+    logger.info("fixProviderAmazon res=> {0}".format( str(response) ))
+    return response
 
 # HANDLE ERROR
 

@@ -11,6 +11,18 @@ class Requester:
                 array = response.json()["subscribeService"]  
         return array
     
+    def PostUniversalRequestPackage(id,packageString):
+        response = PostUniversalRequest(id)
+        array = []
+        if response.json() != None:
+            if response.json().get("subscribeService") != None:
+                for package in response.json()["subscribeService"]:
+                    if package["serviceMenu"]["name"] in packageString:
+                        array.append(package)
+                        if(package["serviceMenu"]["name"] == "AMAZON PRIME "):
+                            continue
+        return array
+    
     def PostUniversalRequestUser(id):
         response = PostUniversalRequest(id)
         array = []

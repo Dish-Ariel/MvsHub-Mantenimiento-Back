@@ -29,20 +29,26 @@ class QuerierDishPlus:
     def getSuscriber(kind,idOrEmail):
         conexion = None
         suscriber = []
+        print(kind)
 
         try:
             conexion = ConnectionMysqlDishPlus.getConnection()
             with conexion.cursor() as cursor:
                 if kind == "email":
                     cursor.execute("SELECT * FROM customer_dish_plus cdp, detail_customer dc WHERE cdp.folio = dc.folio AND cdp.email = %s", (idOrEmail))
-                else:
+                elif kind == "idCustomer":
                     cursor.execute("SELECT * FROM customer_dish_plus cdp, detail_customer dc WHERE cdp.folio = dc.folio AND cdp.id_customer= %s", (idOrEmail))
+                elif kind == "siebel":
+                    cursor.execute("SELECT * FROM customer_dish_plus cdp, detail_customer dc WHERE cdp.folio = dc.folio AND cdp.id_customer= %s", (idOrEmail))
+                
                 suscriber = cursor.fetchall()
             conexion.close()
         except Exception as exc:
             if conexion != None:
                 conexion.close()
-            return {"result":"error","message":exc}
+            print("getSuscriber exc:{0}".format(exc))
+            return "error"
+            #return {"result":"error","message":exc}
         
         if len(suscriber) == 1: 
             return suscriber
