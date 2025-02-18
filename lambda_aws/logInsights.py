@@ -31,6 +31,9 @@ class LogInsightsDishPlus:
                 jsonReaded = json.loads( log[0]["value"][indexStr:] )
 
                 if('providerData' in jsonReaded):
+                    if(newActionTarget == "ADD"):
+                        jsonReaded["origin"]= "SOFT_APROV_MVSHUB"
+                        
                     if(len(jsonReaded["providerData"])==1):
                         if(newActionTarget != None and newActionTarget != ""):
                             jsonReaded["providerData"][0]["actionCode"] = newActionTarget
