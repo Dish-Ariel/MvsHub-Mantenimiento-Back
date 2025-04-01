@@ -1,0 +1,86 @@
+[
+    {
+        "providerData": [
+            {
+                "provisioningId": "Amazon_30_React",
+                "description": "AMAZON ADD ON",
+                "serviceType": "AMAZON",
+                "mainServiceType": "SERVICIOS DIGITALES",
+                "type": "Streaming",
+                "source": "MVSHUB",
+                "dueDate": "",
+                "unitOfMeasure": "",
+                "duration": "",
+                "actionCode": "ADD",
+                "technology": "",
+                "unit": "1"
+            }
+        ],
+        "suscriptorData": {
+            "suscriptorNumber": "",
+            "suscriptorNumberSES": "",
+            "email": "",
+            "numeroCelular": "",
+            "name": "",
+            "status": "Activo",
+            "paymentMethod": "Efectivo",
+            "is_roku": false
+        },
+        "orderData": {
+            "orderNumber": "N/A",
+            "orderType": "Registro de servicio",
+            "orderSubType": "Dish Digital Free",
+            "accionMVSHUB": "Actualizar"
+        },
+        "origin": "SOFT_APROV_MVSHUB",
+        "transactionId": "FREEVIEW"
+    },
+    {
+        "providerData": [
+            {
+                "provisioningId": "Amazon",
+                "description": "AMAZON ADD ON",
+                "dueDate": "",
+                "vigencia": "",
+                "type": "Señal Streaming",
+                "mainServiceType": "STREAMING",
+                "serviceType": "ADD ON",
+                "actionCode": "ADD",
+                "unitOfMeasure": "",
+                "duration": "",
+                "tipo": "Freeview"
+            },
+            {
+                "provisioningId": "Amazon",
+                "description": "AMAZON ADD ON",
+                "dueDate": "",
+                "vigencia": "",
+                "type": "Señal Streaming",
+                "mainServiceType": "STREAMING",
+                "serviceType": "ADD ON",
+                "actionCode": "ADD",
+                "unitOfMeasure": "",
+                "duration": "",
+                "tipo": "Freeview"
+            }
+        ],
+        "suscriptorData": {
+            "suscriptorNumber": "",
+            "suscriptorNumberSES": "",
+            "email": "",
+            "numeroCelular": "",
+            "name": "",
+            "status": "Activo",
+            "paymentMethod": "Efectivo",
+            "is_roku": false
+        },
+        "orderData": {
+            "orderNumber": "N/A",
+            "orderType": "Soft Aprov from MVSHUB",
+            "orderSubType": "Soft Aprov from MVSHUB",
+            "accionMVSHUB": "Actualizar"
+        },
+        "origin": "SOFT_APROV_MVSHUB",
+        "transactionId": "FREEVIEW"
+    }    
+]

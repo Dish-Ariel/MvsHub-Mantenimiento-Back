@@ -70,6 +70,13 @@ def fixProviderAmazon():
     logger.info("fixProviderAmazon res=> {0}".format( str(response) ))
     return response
 
+@app.route("/addProviderAmazon", methods = ['POST'])
+def addProviderAmazon():
+    logger.info("addProviderAmazon req=> {0}".format(str(request.data)))
+    response = UsersService.addProviderAmazon(request)
+    logger.info("addProviderAmazon res=> {0}".format(str(response)))
+    return response
+
 # HANDLE ERROR
 
 @app.errorhandler(HTTPException)

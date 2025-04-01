@@ -10,7 +10,7 @@ from lambda_aws.logInsights import LogInsightsDishPlus
 from lambda_aws.lambdas import LambdaDishPlus
 from utils import customLogger
 import logging
-from datetime import datetime
+from datetime import datetime,timedelta
 import datetime as datetimer
 import json, re
 import time
@@ -505,3 +505,61 @@ class UsersService:
         #    response.description = "Borrar en bd de amazon y ejecutar en aws \tBuen día se reanuda la vigencia solicitada Saludos"
 
         return response.getJSON()
+    
+    def addProviderAmazon(request):
+        response = ResponseDTO()
+        data = QuerierDishPlus.getSuscriber("email",request.json["email"])
+        duadate = request.json["vigencia"]
+        print(data[0]['folio'])
+        #Create request for gdev_providerAmazon_prod and send it twice
+        with open('constants/templates.json') as file:
+            templates = json.load(file)
+            validity = str((datetime.now()+timedelta(int(duadate))).strftime('%m/%d/%Y %H:%M:%S'))
+            
+            if request.json["Action"] == "RESUME":
+                templates[0]['providerData'][0]['actionCode'] = "RESUME"
+            
+            #request for gdev_providerAmazon_prod
+            templates[0]['suscriptorData']['suscriptorNumber'] = str(data[0]['id_cliente_siebel']) 
+            templates[0]['suscriptorData']['suscriptorNumberSES'] = str(data[0]['id_customer']) 
+            templates[0]['suscriptorData']['email'] = str(data[0]['email']) 
+            templates[0]['suscriptorData']['numeroCelular'] = str(data[0]['mobile'])
+            templates[0]['suscriptorData']['name'] = str(data[0]['name']+" "+data[0]['surname'])
+            templates[0]['providerData'][0]['dueDate'] = validity
+            
+            #request for gdev_consume_provider_dish_digital_prod_TEST
+            templates[1]['suscriptorData']['suscriptorNumber'] = str(data[0]['id_cliente_siebel']) 
+            templates[1]['suscriptorData']['suscriptorNumberSES'] = str(data[0]['id_customer']) 
+            templates[1]['suscriptorData']['email'] = str(data[0]['email']) 
+            templates[1]['suscriptorData']['numeroCelular'] = str(data[0]['mobile'])
+            templates[1]['suscriptorData']['name'] = str(data[0]['name']+" "+data[0]['surname'])
+            templates[1]['providerData'][0]['dueDate'] = validity
+            templates[1]['providerData'][1]['dueDate'] = validity
+            templates[1]['providerData'][0]['vigencia'] = str(duadate)
+            templates[1]['providerData'][1]['vigencia'] = str(duadate)
+            
+        
+        
+        request_amazon = templates[0]
+        request_dish = templates[1]
+
+        if request.json["Action"] == "RESUME":
+            response_amazon_validity = LambdaDishPlus.sendLambdaFunction("gdev_providerAmazon_prod",request_amazon,"us-east-1")
+            #Open amazon in ses
+            response_dish = LambdaDishPlus.sendLambdaFunction("gdev_consume_provider_dish_digital_prod_TEST",request_dish,"us-east-1")
+            response.code = MessagesDTO.CODE_OK
+            response.description = "Aprovisionamiento realizado con RESUME"
+            response.data = {"response_amazon_validity":response_amazon_validity,"response_dish":response_dish}
+            return response.getJSON()
+
+        ##First execution sends email with activation link and the second inserts the customer into the validity table
+        response_amazon_email = LambdaDishPlus.sendLambdaFunction("gdev_providerAmazon_prod",request_amazon,"us-east-1")
+        response_amazon_validity = LambdaDishPlus.sendLambdaFunction("gdev_providerAmazon_prod",request_amazon,"us-east-1")
+        #Open amazon in ses
+        response_dish = LambdaDishPlus.sendLambdaFunction("gdev_consume_provider_dish_digital_prod_TEST",request_dish,"us-east-1")
+        
+        response.code = MessagesDTO.CODE_OK
+        response.description = "Aprovisionamiento realizado con ADD"
+        response.data = {"response_amazon_email":response_amazon_email,"response_amazon_validity":response_amazon_validity,"response_dish":response_dish}
+        return response.getJSON()
+

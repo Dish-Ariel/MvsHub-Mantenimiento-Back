@@ -67,7 +67,8 @@ class LambdaDishPlus:
         try:
             lambda_client = boto3.client('lambda',region_name=regionName)
             response_json = lambda_client.invoke(FunctionName = lambdaUrl, InvocationType = "RequestResponse",Payload = json.dumps(payload))
-            return response_json
+            response = json.loads(response_json['Payload'].read())
+            return response
             
         except Exception as exc:
             return exc
