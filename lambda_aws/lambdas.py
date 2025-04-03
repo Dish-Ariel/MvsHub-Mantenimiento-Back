@@ -62,3 +62,13 @@ class LambdaDishPlus:
                             return response
         except Exception as e:
             return [e]
+        
+    def sendLambdaFunction(lambdaUrl,payload,regionName):
+        try:
+            lambda_client = boto3.client('lambda',region_name=regionName)
+            response_json = lambda_client.invoke(FunctionName = lambdaUrl, InvocationType = "RequestResponse",Payload = json.dumps(payload))
+            response = json.loads(response_json['Payload'].read())
+            return response
+            
+        except Exception as exc:
+            return exc

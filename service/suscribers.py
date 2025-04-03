@@ -1,11 +1,19 @@
 from dto.ResponseDTO import ResponseDTO
 from dto.MensajesDTO import MessagesDTO
+from dao.querysAmazon import QuerierAmazonPrime
 from utils.validations import SuscriberValidator
 from utils.querysDishPlus import QuerierDishPlus
 from utils.querysAprdb import QuerierAprdb
 from utils.requests import Requester
 from utils.cognitos import CognitoDishPlus
+from lambda_aws.logInsights import LogInsightsDishPlus
 from lambda_aws.lambdas import LambdaDishPlus
+from utils import customLogger
+import logging
+from datetime import datetime,timedelta
+import datetime as datetimer
+import json, re
+import time
 
 class UsersService:
 
@@ -171,13 +179,13 @@ class UsersService:
             response.description = MessagesDTO.ERROR_INVALID_ID_OR_EMAIL
             response.data = {"field":"emailOrId"}
             return response.getJSON()
-        
+ 
         actualCount = QuerierDishPlus.getSuscriber(isEmailOrId,request.json["emailOrId"])
         if actualCount == "none":
             response.description = MessagesDTO.ERROR_SUSCRIBER_NOT_FOUNDIN_BD
             response.data = {"field":"emailOrId", "emailOrId":request.json["emailOrId"]}
             return response.getJSON()
-        
+            
         #get the user from cognito using email from db
         actualEmailCognitos = CognitoDishPlus.getSuscriberCognitoByEmail(actualCount[0]["email"])
         if len(actualEmailCognitos) == 0:
@@ -185,7 +193,7 @@ class UsersService:
             response.description = MessagesDTO.ERROR_EMAIL_NOT_FOUNDIN_COGNITO
             response.data = {"field":"emailOrId"}
             return response.getJSON()
-        #validate user in cognito = user in bd
+            #validate user in cognito = user in bd
         else: 
             for i in actualEmailCognitos[0]["Attributes"]:
                 fields = []
@@ -197,7 +205,7 @@ class UsersService:
                     if str(actualCount[0]["surname"]).lower() not in str(i["Value"]).lower():
                         fields.append("surName")
                         values.append("bd:" + str(actualCount[0]["surname"]).lower() + " (NOT IN) cognito:" + str(i["Value"]).lower())
-                
+                    
                 if i["Name"] == "phone_number":
                     if actualCount[0]["mobile"] not in i["Value"]:
                         fields.append("mobile")
@@ -210,25 +218,26 @@ class UsersService:
                             if status != "commited":
                                 fields.append("update_username_failed")
                                 values.append(str(response))
-
-                if len(fields)>0:
-                    response.code = MessagesDTO.CODE_WARNIG
-                    response.description = MessagesDTO.WARNING_NOTMATCH_CONGINTO_DB
-                    response.data = {"fields":fields, "values":values, "email":actualCount[0]["email"]}
-                    return response.getJSON()
-        
-        #validate payments
-        validate_payment = QuerierDishPlus.check_payments(actualCount[0]["id_cliente_siebel"],actualCount[0]["id_cliente"])
-        if validate_payment != "none":
-            response.description = MessagesDTO.ERROR_USER_HAS_PAYMENTS
-            response.data = {"field":validate_payment}
-            return response.getJSON()
-        
-        #validate if data source is telmex or dish with a purchase
-        if (actualCount[0]["source"] == "telmex" or (actualCount[0]["source"] == "dish" and actualCount[0]["id_cliente_siebel"] != 0)):
-            response.description = MessagesDTO.ERROR_CANNOT_DELETE_ONLY_UPDATE
-            response.data = {"source":actualCount[0]["source"], "status":actualCount[0]["status"], "id_cliente_siebel":actualCount[0]["id_cliente_siebel"], "id_customer":actualCount[0]["id_customer"]}
-            return response.getJSON()
+        if request.json["force"] != 'Y':  
+            if len(fields)>0:
+                response.code = MessagesDTO.CODE_WARNIG
+                response.description = MessagesDTO.WARNING_NOTMATCH_CONGINTO_DB
+                response.data = {"fields":fields, "values":values, "email":actualCount[0]["email"]}
+                return response.getJSON()
+            
+            #validate payments
+            validate_payment = QuerierDishPlus.check_payments(actualCount[0]["id_cliente_siebel"],actualCount[0]["id_cliente"])
+            if validate_payment != "none":
+                response.description = MessagesDTO.ERROR_USER_HAS_PAYMENTS
+                response.data = {"field":validate_payment}
+                return response.getJSON()
+            
+            #validate if data source is telmex or dish with a purchase
+            source = ["telmex","pagWebTelmexG3"]
+            if (actualCount[0]["source"] in source or (actualCount[0]["source"] == "dish" and actualCount[0]["id_cliente_siebel"] != 0)):
+                response.description = MessagesDTO.ERROR_CANNOT_DELETE_ONLY_UPDATE
+                response.data = {"source":actualCount[0]["source"], "status":actualCount[0]["status"], "id_cliente_siebel":actualCount[0]["id_cliente_siebel"], "id_customer":actualCount[0]["id_customer"]}
+                return response.getJSON()
 
         #delete from cache_pagos
         delete_cache_pagos = QuerierDishPlus.delete_cache_pagos(actualCount[0]["mobile"],actualCount[0]["id_cliente"],actualCount[0]["id_cliente_siebel"])
@@ -250,7 +259,18 @@ class UsersService:
             response.data = {"field":delete_ventas}
             return response.getJSON()
                 
-            #¿USER IN SES?
+        # delete from admin_mvshub_activation_link
+        delete_admin_mvshub_activation_link = "none"
+        existActivationLink = QuerierDishPlus.getEmailActivationLink(actualCount[0]["email"])
+        if existActivationLink != "none" and len(existActivationLink) ==1:            
+            delete_admin_mvshub_activation_link = QuerierDishPlus.deleteEmailActivationLink(actualCount[0]["email"])
+            if delete_admin_mvshub_activation_link != "commited" and delete_admin_mvshub_activation_link != "none":
+                response.description = MessagesDTO.ERROR_WITH_CONNECTION_DB
+                response.data = {"field":delete_admin_mvshub_activation_link}
+                return response.getJSON()
+            
+        
+        #¿USER IN SES?
         userSes = []
         delete_user_SES = []
         delete_devices = []
@@ -263,14 +283,14 @@ class UsersService:
                 #¿LEAD IN SIEBEL?
                 if actualCount[0]["dth"] == "NO":
                     delete_from_siebel_pendiente = QuerierDishPlus.delete_from_siebel(actualCount[0]["email"], actualCount[0]["id_customer"])
-
+        detail_customer = QuerierDishPlus.insertDetailCustomer(actualCount)
         #deleteuser
         delete_user = LambdaDishPlus.deleteSuscriber(actualCount[0]["email"])
         #VALIDATE IF LAMBDA DELETED THE CUSTOMER
         if delete_user["status_code"] != 200:
             response.code = MessagesDTO.CODE_ERROR
             response.data = {"Delete_user":actualCount[0]["email"],"deleteuserResponse":delete_user, "userSes":userSes, "sesResponse":delete_user_SES,"devices_deleted":delete_devices,
-                        "cachepagosResponse":delete_cache_pagos, "Siebel_pendiente" : delete_from_siebel_pendiente, "cards_domiciliation":delete_domiciliations, "ventas": delete_ventas}
+                        "cachepagosResponse":delete_cache_pagos, "Siebel_pendiente" : delete_from_siebel_pendiente, "cards_domiciliation":delete_domiciliations, "ventas": delete_ventas, "detail_customer":detail_customer}
             response.description = MessagesDTO.ERROR_WITH_LAMBDA
             return response.getJSON()
 
@@ -278,7 +298,7 @@ class UsersService:
 
         response.code = MessagesDTO.CODE_OK
         response.data = {"Delete_user":actualCount[0]["email"],"deleteuserResponse":delete_user, "userSes":userSes, "sesResponse":delete_user_SES,"devices_deleted":delete_devices,
-                        "cachepagosResponse":delete_cache_pagos, "Siebel_pendiente" : delete_from_siebel_pendiente, "cards_domiciliation":delete_domiciliations, "ventas": delete_ventas}
+                        "cachepagosResponse":delete_cache_pagos, "Siebel_pendiente" : delete_from_siebel_pendiente, "cards_domiciliation":delete_domiciliations, "ventas": delete_ventas, "deleteActivationLink":delete_admin_mvshub_activation_link,"detail_customer":detail_customer}
         response.description = MessagesDTO.OK_USER_DELETED(actualCount[0], userSes)
         return response.getJSON()
 
@@ -372,3 +392,174 @@ class UsersService:
         response.description = MessagesDTO.OK_SUSCRIBER_SERVICES_DISABLED
         response.data = {"serviceNetfix":messageNetflix,"serviceAmazon":messageAmazon}
         return response.getJSON()
+    
+    def disableAccounts():
+        response = ResponseDTO()
+        return response.getJSON()
+    
+    def fixProviderAmazon(request):
+        loggerFxAmz = logging.getLogger('amazonPrime')
+
+        response = ResponseDTO()
+        client = request.json["idCustomerSes"]
+        logWeeks = request.json["logWeeks"]
+        isForced = request.json["force"]
+        toleranceDays = request.json["toleranceDays"]
+
+        loggerFxAmz.info("*********** entro a:{0} buscar por: {1} semana(s)".format(client,logWeeks))
+        response.data["client"] = client
+        isEmailOrId = SuscriberValidator.whatIsIdUser(client)
+        if isEmailOrId == "error": 
+            response.data["result"] = MessagesDTO.ERROR_INVALID_ID_OR_EMAIL
+            response.description = "Buen día El suscriptor ingresado es erroneo Saludos"
+            return response.getJSON()
+        
+        #Query for get suscriber data from dishplus
+        actualCount = QuerierDishPlus.getSuscriber(isEmailOrId,client)
+        loggerFxAmz.info("actualCount:{0} isEmailOrId:{1}".format(str(actualCount),str(isEmailOrId)))
+        if actualCount == "none" or actualCount == "error":
+            response.data["result"] = "ERROR_SUSCRIBER_NOT_FOUNDIN_DISHPLUS"
+            response.description = "Buen día No se puede localizar la cuenta en la bd de dishplus Saludos"
+            return response.getJSON()
+
+        #Get suscriber data from amazon
+        amazonSuscriber = QuerierAmazonPrime.getSuscriber(actualCount[0]["id_cliente_siebel"])
+        loggerFxAmz.info("amazonSuscriber:{0}".format(str(amazonSuscriber)))
+        if amazonSuscriber == "none":
+            response.data["result"] = "ERROR_SUSCRIBER_NOT_FOUNDIN_AMAZON"
+            response.description = "Buen día No se puede localizar la cuenta en la bd de Amazon Saludos"
+            return response.getJSON()
+
+        amazonLogsToday = LogInsightsDishPlus.getAmazonProviderLogs(actualCount[0]["id_cliente_siebel"],toleranceDays,"days",False)
+        if(len(amazonLogsToday)!=0 and isForced == "N"):
+            loggerFxAmz.info("amazonLogsToday:{0}".format(str(amazonLogsToday)))
+            #bodySendedToday = LogInsightsDishPlus.getBodyToResend(amazonLogsToday,None,None)
+            #loggerFxAmz.info("bodySendedToday:{0}".format( json.dumps(bodySendedToday, separators=(',', ':')) ))
+            response.data["result"] = "ERROR_LOGS_EXECUTED_TODAY"
+            response.description = "Buen día EL día de hoy hubo una ejecución favor de validar Saludos"
+            return response.getJSON()
+        
+        #Get actual offer from ses (of amazon prime)
+        amazonPackage = Requester.PostUniversalRequestPackage(actualCount[0]["id_customer"],["AMAZON PRIME ","PAQUETE ENTRETENIMIENTO"])
+        loggerFxAmz.info("amazonPackage:{0}".format(str(amazonPackage)))
+
+        if len (amazonPackage) == 0:
+            response.data["result"] = "ERROR_PACKAGE_NOT_FOUNDIN_SES"
+            response.description = "Buen día No se ve el paquete amazon en SES Saludos"
+            return response.getJSON()
+        
+        if(amazonPackage[0]["expireDt"] == None):
+            response.data["result"] = "ERROR_PACKAGE_NOT_AVALIALBLE_SES"
+            response.description = "Buen día No se ve vigencia en el paquete amazon en SES Saludos"
+            return response.getJSON()
+        else:
+            readDate = datetime.strptime(amazonPackage[0]["expireDt"],"%m/%d/%Y")
+            #MANUAL
+            newDate = readDate + datetimer.timedelta(days=2)
+
+        actionTarget = ""
+        if(amazonSuscriber[0]["status"] == "SUBSCRIPTION_TERMINATION_SUCCEEDED"):
+            query = "1NSERT INT0 suscriptors (id_cliente,id_customer,id_suscription,id_product,date_suscription,date_update,status,orderNumber) VALUES ({0},'{1}','{2}','{3}','{4}','{5}','{6}','{7}')".format(amazonSuscriber[0]["id_cliente"],amazonSuscriber[0]["id_customer"],amazonSuscriber[0]["id_suscription"],amazonSuscriber[0]["id_product"],amazonSuscriber[0]["date_suscription"],amazonSuscriber[0]["date_update"],amazonSuscriber[0]["status"],amazonSuscriber[0]["orderNumber"])
+            loggerFxAmz.info(query)
+            actionTarget = "ADD"
+
+        elif (amazonSuscriber[0]["status"] == "SUBSCRIPTION_SUSPENDED"):
+            actionTarget = "RESUME"
+        else:
+            response.data["result"] = "ERROR_SUSCRIBER_STATUS_{0}".format(amazonSuscriber[0]["status"])
+            actionTarget = "NONE"
+            response.description = "Buen día Favor de validar el estatus de la cuenta, ya que es {0} Saludos".format(amazonSuscriber[0]["status"])
+            return response.getJSON()
+        
+        amazonLogs = LogInsightsDishPlus.getAmazonProviderLogs(actualCount[0]["id_cliente_siebel"],logWeeks,"weeks",True)
+        loggerFxAmz.info("amazonLogs:{0}".format(str(amazonLogs)))
+        if(len(amazonLogs)==0):
+            response.data["result"] = "ERROR_LOGS_NOTFOUND"
+            response.description = "Buen día No se ven logs previos de esta cuenta en aws Saludos"
+            return response.getJSON()
+        
+        if(amazonSuscriber[0]["status"] == "SUBSCRIPTION_TERMINATION_SUCCEEDED"):
+            deletedAmazon = QuerierAmazonPrime.deleteSuscriber(actualCount[0]["id_cliente_siebel"])
+            if(deletedAmazon == "none" or deletedAmazon == "error"):
+                response.data["result"] = "ERROR_TO_DELETE_STATUS_{0}".format(deletedAmazon)
+                response.description = "Error en bd al eliminar"
+                return response.getJSON()
+            time.sleep(2)
+        
+        bodyToSend = LogInsightsDishPlus.getBodyToResend(amazonLogs,newDate,actionTarget)
+        loggerFxAmz.info("bodyToSend:{0}".format( json.dumps(bodyToSend, separators=(',', ':')) ))
+        
+        #SEND the new body to lambda for provide amazon, new date with more thays and action target 
+        #MANUAL
+
+        if(actionTarget=="RESUME" or actionTarget == "ADD"):
+            lambdaProviderAmazonRes = LambdaDishPlus.sendLambdaFunction("gdev_providerAmazon_prod",bodyToSend,"us-east-1")    
+            #loggerFxAmz.info("lambdaProviderAmazonRes:{0}".format( json.dumps(lambdaProviderAmazonRes, separators=(',', ':'))) )
+            loggerFxAmz.info("lambdaProviderAmazonRes:{0}".format( str(lambdaProviderAmazonRes) ))
+            response.code = MessagesDTO.CODE_OK
+            response.data["result"] = "OK {0}".format(actionTarget)
+            response.description = "Buen día se reanuda la vigencia solicitada Saludos"
+        #else:
+        #    response.code = MessagesDTO.CODE_WARNIG
+        #    response.data["result"] = json.dumps(bodyToSend, separators=(',', ':'))
+        #    response.description = "Borrar en bd de amazon y ejecutar en aws \tBuen día se reanuda la vigencia solicitada Saludos"
+
+        return response.getJSON()
+    
+    def addProviderAmazon(request):
+        response = ResponseDTO()
+        data = QuerierDishPlus.getSuscriber("email",request.json["email"])
+        duadate = request.json["vigencia"]
+        print(data[0]['folio'])
+        #Create request for gdev_providerAmazon_prod and send it twice
+        with open('constants/templates.json') as file:
+            templates = json.load(file)
+            validity = str((datetime.now()+timedelta(int(duadate))).strftime('%m/%d/%Y %H:%M:%S'))
+            
+            if request.json["Action"] == "RESUME":
+                templates[0]['providerData'][0]['actionCode'] = "RESUME"
+            
+            #request for gdev_providerAmazon_prod
+            templates[0]['suscriptorData']['suscriptorNumber'] = str(data[0]['id_cliente_siebel']) 
+            templates[0]['suscriptorData']['suscriptorNumberSES'] = str(data[0]['id_customer']) 
+            templates[0]['suscriptorData']['email'] = str(data[0]['email']) 
+            templates[0]['suscriptorData']['numeroCelular'] = str(data[0]['mobile'])
+            templates[0]['suscriptorData']['name'] = str(data[0]['name']+" "+data[0]['surname'])
+            templates[0]['providerData'][0]['dueDate'] = validity
+            
+            #request for gdev_consume_provider_dish_digital_prod_TEST
+            templates[1]['suscriptorData']['suscriptorNumber'] = str(data[0]['id_cliente_siebel']) 
+            templates[1]['suscriptorData']['suscriptorNumberSES'] = str(data[0]['id_customer']) 
+            templates[1]['suscriptorData']['email'] = str(data[0]['email']) 
+            templates[1]['suscriptorData']['numeroCelular'] = str(data[0]['mobile'])
+            templates[1]['suscriptorData']['name'] = str(data[0]['name']+" "+data[0]['surname'])
+            templates[1]['providerData'][0]['dueDate'] = validity
+            templates[1]['providerData'][1]['dueDate'] = validity
+            templates[1]['providerData'][0]['vigencia'] = str(duadate)
+            templates[1]['providerData'][1]['vigencia'] = str(duadate)
+            
+        
+        
+        request_amazon = templates[0]
+        request_dish = templates[1]
+
+        if request.json["Action"] == "RESUME":
+            response_amazon_validity = LambdaDishPlus.sendLambdaFunction("gdev_providerAmazon_prod",request_amazon,"us-east-1")
+            #Open amazon in ses
+            response_dish = LambdaDishPlus.sendLambdaFunction("gdev_consume_provider_dish_digital_prod_TEST",request_dish,"us-east-1")
+            response.code = MessagesDTO.CODE_OK
+            response.description = "Aprovisionamiento realizado con RESUME"
+            response.data = {"response_amazon_validity":response_amazon_validity,"response_dish":response_dish}
+            return response.getJSON()
+
+        ##First execution sends email with activation link and the second inserts the customer into the validity table
+        response_amazon_email = LambdaDishPlus.sendLambdaFunction("gdev_providerAmazon_prod",request_amazon,"us-east-1")
+        response_amazon_validity = LambdaDishPlus.sendLambdaFunction("gdev_providerAmazon_prod",request_amazon,"us-east-1")
+        #Open amazon in ses
+        response_dish = LambdaDishPlus.sendLambdaFunction("gdev_consume_provider_dish_digital_prod_TEST",request_dish,"us-east-1")
+        
+        response.code = MessagesDTO.CODE_OK
+        response.description = "Aprovisionamiento realizado con ADD"
+        response.data = {"response_amazon_email":response_amazon_email,"response_amazon_validity":response_amazon_validity,"response_dish":response_dish}
+        return response.getJSON()
+

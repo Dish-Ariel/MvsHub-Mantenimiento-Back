@@ -29,20 +29,26 @@ class QuerierDishPlus:
     def getSuscriber(kind,idOrEmail):
         conexion = None
         suscriber = []
+        print(kind)
 
         try:
             conexion = ConnectionMysqlDishPlus.getConnection()
             with conexion.cursor() as cursor:
                 if kind == "email":
                     cursor.execute("SELECT * FROM customer_dish_plus cdp, detail_customer dc WHERE cdp.folio = dc.folio AND cdp.email = %s", (idOrEmail))
-                else:
+                elif kind == "idCustomer":
                     cursor.execute("SELECT * FROM customer_dish_plus cdp, detail_customer dc WHERE cdp.folio = dc.folio AND cdp.id_customer= %s", (idOrEmail))
+                elif kind == "siebel":
+                    cursor.execute("SELECT * FROM customer_dish_plus cdp, detail_customer dc WHERE cdp.folio = dc.folio AND cdp.id_customer= %s", (idOrEmail))
+                
                 suscriber = cursor.fetchall()
             conexion.close()
         except Exception as exc:
             if conexion != None:
                 conexion.close()
-            return {"result":"error","message":exc}
+            print("getSuscriber exc:{0}".format(exc))
+            return "error"
+            #return {"result":"error","message":exc}
         
         if len(suscriber) == 1: 
             return suscriber
@@ -293,7 +299,23 @@ class QuerierDishPlus:
             conexion.close()
             return "none"
          
-    
+    def insertDetailCustomer(data):
+        conexion = None
+        try:
+            conexion = ConnectionMysqlDishPlus.getConnection()
+            with conexion.cursor() as cursor:
+                cursor.execute("INSERT INTO detail_customer_respaldo VALUES (%s,%s,%s,%s,%s,%s,%s,%s)",(data[0]['folio'],data[0]['name']
+                                                                                                        ,data[0]['surname'],data[0]['mobile']
+                                                                                                        ,data[0]['dth'],data[0]['payment_type']
+                                                                                                        ,data[0]['validateCel'],data[0]['DomiciliedFlag']))
+            conexion.commit()
+            conexion.close()
+            return "commited"
+        except Exception as exc:
+            if conexion != None:
+                conexion.close()
+            return {"result":"error","message":exc}
+        
     
     def disable_amazon_prime(idClienteSiebel,reason,ticket):
         conexion = None
@@ -357,6 +379,28 @@ class QuerierDishPlus:
         else:
             return "none"
 
+    def deleteEmailActivationLink(actualEmail):
+        conexion = None
+        try:
+            conexion = ConnectionMysqlDishPlus.getConnection()
+            with conexion.cursor() as cursor:
+                cursor.execute("DELETE FROM admin_mvshub_activation_link where email = %s",(actualEmail))
+                delete = cursor.rowcount
+
+        except Exception as exc:
+            if conexion != None:
+                conexion.close()
+            return {"result":"error","message":exc}
+        
+        if delete == 1:
+            conexion.commit()
+            conexion.close()
+            return "commited"
+        else:
+            conexion.close()
+            return "none"
+        
+    
     def updateEmailActivationLink(actualEmail,newEmail):
         conexion = None
         result = 0
